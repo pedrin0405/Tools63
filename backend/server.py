@@ -1,5 +1,12 @@
-# -*- coding: utf-8 -*-
-import os, threading, platform, subprocess, shutil, time, re, signal
+import os, threading, platform, subprocess, shutil, time, re, signal, sys
+
+# Forçar UTF-8 no stdout para evitar erro de encoding no Windows (emojis/caracteres especiais)
+if sys.stdout.encoding != 'utf-8':
+    try:
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except:
+        pass
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yt_dlp
@@ -12,7 +19,7 @@ def kill_port(port):
             if output:
                 for pid in output.split('\n'):
                     os.kill(int(pid), signal.SIGTERM)
-                print(f"✅ Porta {port} liberada.")
+                print(f"[OK] Porta {port} liberada.")
                 time.sleep(1)
     except: pass
 
@@ -46,9 +53,9 @@ active_threads = 0
 MAX_CONCURRENT = 2
 queue_lock = threading.Lock()
 
-print(f'🚀 Tools63 Backend Iniciando...')
-print(f'➜ FFmpeg: {FFMPEG_PATH}')
-print(f'➜ Node.js: {NODE_PATH}')
+print(f'>>> Tools63 Backend Iniciando...')
+print(f'- FFmpeg: {FFMPEG_PATH}')
+print(f'- Node.js: {NODE_PATH}')
 
 def send_notification(title, message):
     try:
