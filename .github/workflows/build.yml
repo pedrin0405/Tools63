@@ -34,12 +34,17 @@ jobs:
       - name: Install Node Dependencies
         run: npm install
 
-      - name: Install Python Dependencies
+      - name: Install Python Dependencies (macOS)
+        if: matrix.os == 'macos-latest'
         run: |
           python -m venv venv
-          # No Windows, o binário é .\venv\Scripts\python
-          # No Mac/Linux, é ./venv/bin/python
-          ./venv/bin/python -m pip install -r backend/requirements.txt pyinstaller || .\venv\Scripts\python -m pip install -r backend/requirements.txt pyinstaller
+          ./venv/bin/python -m pip install -r backend/requirements.txt pyinstaller
+
+      - name: Install Python Dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          python -m venv venv
+          .\venv\Scripts\python -m pip install -r backend/requirements.txt pyinstaller
 
       - name: Build Python Backend (macOS)
         if: matrix.os == 'macos-latest'
