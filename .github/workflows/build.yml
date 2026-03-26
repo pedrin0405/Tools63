@@ -1,0 +1,65 @@
+name: Build and Release Tools63
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Node Dependencies
+        run: npm install
+
+      - name: Install Python Dependencies
+        run: |
+          python -m venv venv
+          # No Windows, o binário é .\venv\Scripts\python
+          # No Mac/Linux, é ./venv/bin/python
+          ./venv/bin/python -m pip install -r backend/requirements.txt pyinstaller || .\venv\Scripts\python -m pip install -r backend/requirements.txt pyinstaller
+
+      - name: Build Python Backend (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd backend
+          ../venv/bin/pyinstaller --onefile --noconsole server.py
+
+      - name: Build Python Backend (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd backend
+          ..\venv\Scripts\pyinstaller --onefile --noconsole server.py
+
+      - name: Build Electron App
+        run: npx electron-builder --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tools63-${{ matrix.os }}
+          path: release/

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youtube Downloader — Tools63</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: transparent; min-height: 100vh; overflow-x: hidden; color: #e2e8f0; padding: 20px; }
+
+        .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(50px) saturate(180%); -webkit-backdrop-filter: blur(50px) saturate(180%); border: 1px solid rgba(255,255,255,0.12); border-radius: 30px; }
+        .glass-inset { background: rgba(255,255,255,0.04); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; }
+        .glass-hover:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+
+        .glass-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; color: #fff; outline: none; transition: all 0.25s; }
+        .glass-input:focus { background: rgba(255,255,255,0.09); border-color: rgba(139,92,246,0.6); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+
+        .btn-gradient { background: linear-gradient(135deg, #8b5cf6, #ec4899, #f97316); background-size: 200% 200%; animation: gradientShift 5s ease infinite; border-radius: 15px; font-weight: 700; color: white; transition: all 0.2s; }
+        @keyframes gradientShift { 0% { background-position: 0% 50% } 50% { background-position: 100% 50% } 100% { background-position: 0% 50% } }
+        .btn-gradient:hover { transform: scale(1.02); box-shadow: 0 10px 40px rgba(139,92,246,0.4); }
+        .btn-glass { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; font-weight: 600; color: #cbd5e1; transition: all 0.2s; }
+        .btn-glass:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+        .opt-tab { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 7px 12px; font-size: 11px; font-weight: 600; color: #94a3b8; cursor: pointer; transition: 0.2s; }
+        .opt-tab.active { background: rgba(139,92,246,0.25); border-color: rgba(139,92,246,0.5); color: #c4b5fd; }
+        
+        .progress-track { background: rgba(255,255,255,0.05); border-radius: 99px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #8b5cf6, #ec4899); border-radius: 99px; transition: width 0.6s ease; box-shadow: 0 0 10px rgba(139,92,246,0.3); }
+        .progress-fill.done { background: linear-gradient(90deg, #10b981, #06b6d4); }
+
+        .badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; padding: 3px 10px; font-size: 10px; font-weight: 700; color: #e2e8f0; }
+        .badge-violet { background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); color: #c4b5fd; }
+
+        .fade-up { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+        .scrollable::-webkit-scrollbar { width: 5px; }
+        .scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+        .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toggle-label { display: flex; align-items: center; cursor: pointer; gap: 8px; font-size: 11px; font-weight: 500; color: #94a3b8; }
+        .toggle-input { display: none; }
+        .toggle-switch { width: 34px; height: 18px; background: rgba(255,255,255,0.1); border-radius: 20px; position: relative; transition: 0.3s; }
+        .toggle-switch::after { content: ''; width: 14px; height: 14px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s; }
+        .toggle-input:checked + .toggle-switch { background: #8b5cf6; }
+        .toggle-input:checked + .toggle-switch::after { left: 18px; }
+
+        .platform-icon { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div style="position:relative;z-index:1;" class="flex flex-col items-center">
+        <!-- Top Tool Bar -->
+        <div class="w-full max-w-6xl flex flex-wrap items-center justify-between gap-4 mb-6 fade-up" style="animation-delay:0s">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 glass flex items-center justify-center text-2xl shadow-xl">🚀</div>
+                <div>
+                    <h1 class="text-2xl font-black text-white tracking-tight">Youtube Downloader</h1>
+                    <div id="stats-bar" class="flex gap-4 mt-1">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><span id="stats-count">0</span> Arquivos</span>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><span id="stats-size">0 MB</span> Total</span>
+                        <span id="server-status" class="text-[10px] font-bold text-emerald-500 uppercase flex items-center gap-1">● Online</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div id="platform-preview" class="hidden glass-inset px-3 py-2 flex items-center gap-2">
+                    <div id="p-icon" class="platform-icon bg-red-500/20 text-red-400">Y</div>
+                    <span id="p-name" class="text-xs font-bold text-slate-300">YouTube</span>
+                </div>
+                <button onclick="openFolderGlobal()" class="btn-glass px-4 py-2.5 text-xs flex items-center gap-2">📁 Finder</button>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 pb-12">
+
+            <!-- Left: Inputs & Preview (7 cols) -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                <!-- URL Input -->
+                <div class="glass p-6 fade-up" style="animation-delay:0.1s">
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Análise de Mídia</p>
+                        <div class="flex gap-4">
+                             <label class="toggle-label"><input type="checkbox" id="chk-playlist" class="toggle-input"><div class="toggle-switch"></div> Playlist</label>
+                             <label class="toggle-label"><input type="checkbox" id="chk-cookies" class="toggle-input"><div class="toggle-switch"></div> Cookies Chrome</label>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <input id="url-input" type="url" placeholder="Insira o link aqui..." class="glass-input flex-1 px-5 py-4 text-base"/>
+                        <button id="fetch-btn" onclick="fetchVideoInfo()" class="btn-gradient px-8 py-4 text-sm flex items-center gap-2 min-w-[140px] justify-center">Analisar</button>
+                    </div>
+                </div>
+
+                <!-- Preview Card -->
+                <div id="preview-section" class="glass overflow-hidden flex flex-col min-h-[400px] fade-up" style="animation-delay:0.2s">
+                    <div id="preview-empty" class="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                        <div class="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center text-4xl mb-6">🎞️</div>
+                        <h2 class="text-xl font-bold text-slate-300">Pronto para a Ação</h2>
+                        <p class="text-sm text-slate-500 mt-2 max-w-xs">Cole um link para desbloquear preview e opções de corte.</p>
+                    </div>
+
+                    <div id="preview-filled" class="hidden flex flex-col h-full">
+                        <div class="relative h-64">
+                            <img id="v-thumb" src="" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-[#0c0a1a] via-transparent to-transparent"></div>
+                            <div class="absolute bottom-6 left-6 right-6">
+                                <h2 id="v-title" class="text-2xl font-black text-white leading-tight line-clamp-2">Título do Vídeo</h2>
+                                <p id="v-meta" class="text-sm font-medium text-slate-400 mt-1">Canal • 00:00</p>
+                            </div>
+                        </div>
+
+                        <div class="p-8 space-y-8">
+                            <!-- Options Grid -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <!-- Format / Res -->
+                                <div class="space-y-6">
+                                    <div>
+                                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Extensão & Qualidade</p>
+                                        <div class="flex flex-wrap gap-2 mb-4">
+                                            <button class="opt-tab active" data-fmt="mp4" data-type="video" onclick="selectFmt(this)">MP4</button>
+                                            <button class="opt-tab" data-fmt="mkv" data-type="video" onclick="selectFmt(this)">MKV</button>
+                                            <button class="opt-tab" data-fmt="mp3" data-type="audio" onclick="selectFmt(this)">MP3</button>
+                                            <button class="opt-tab" data-fmt="m4a" data-type="audio" onclick="selectFmt(this)">M4A</button>
+                                            <button class="opt-tab" data-fmt="wav" data-type="audio" onclick="selectFmt(this)">WAV</button>
+                                        </div>
+                                        <div id="res-grid" class="flex flex-wrap gap-2">
+                                            <button class="opt-tab active" data-res="best" onclick="selectRes(this)">MÁXIMA</button>
+                                            <button class="opt-tab" data-res="4k" onclick="selectRes(this)">4K</button>
+                                            <button class="opt-tab" data-res="1080p" onclick="selectRes(this)">1080P</button>
+                                            <button class="opt-tab" data-res="720p" onclick="selectRes(this)">720P</button>
+                                            <button class="opt-tab" data-res="480p" onclick="selectRes(this)">480P</button>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-wrap gap-5">
+                                        <label class="toggle-label"><input type="checkbox" id="chk-metadata" checked class="toggle-input"><div class="toggle-switch"></div> Thumbnail/Metadados</label>
+                                    </div>
+                                </div>
+
+                                <!-- Trim Section -->
+                                <div class="space-y-4">
+                                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Corte de Vídeo (Clip)</p>
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex-1 space-y-1">
+                                            <label class="text-[9px] font-bold text-slate-600">INÍCIO</label>
+                                            <input id="trim-start" type="text" placeholder="00:00:00" class="glass-input w-full px-3 py-2.5 text-xs text-center">
+                                        </div>
+                                        <div class="pt-4 text-slate-700">➜</div>
+                                        <div class="flex-1 space-y-1">
+                                            <label class="text-[9px] font-bold text-slate-600">FIM</label>
+                                            <input id="trim-end" type="text" placeholder="Fim" class="glass-input w-full px-3 py-2.5 text-xs text-center">
+                                        </div>
+                                    </div>
+                                    <p class="text-[9px] text-slate-600 italic">Use HH:MM:SS para precisão.</p>
+                                </div>
+                            </div>
+                            
+                            <button onclick="addToQueue()" class="btn-gradient w-full py-5 text-base tracking-[3px] font-black group">
+                                ADICIONAR À FILA <span class="group-hover:translate-x-1 transition-transform inline-block">→</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Progress & Library (5 cols) -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <!-- Process Control -->
+                <div class="glass p-6 flex flex-col gap-6 fade-up" style="animation-delay:0.3s">
+                    <!-- Queue -->
+                    <div>
+                        <div class="flex justify-between items-center mb-4">
+                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Processamento</p>
+                            <span id="queue-badge" class="badge badge-violet">Fila: 0</span>
+                        </div>
+                        <div id="queue-list" class="space-y-2 max-h-48 overflow-y-auto scrollable">
+                            <p class="text-[11px] text-slate-600 italic text-center py-4">Fila vazia</p>
+                        </div>
+                    </div>
+
+                    <div class="h-px bg-white/5"></div>
+
+                    <!-- Active -->
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px] mb-4">Atividade em Tempo Real</p>
+                        <div id="active-list" class="space-y-4">
+                            <p class="text-[11px] text-slate-600 italic text-center py-4">Nenhuma atividade</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Library -->
+                <div class="glass flex-1 p-6 flex flex-col min-h-[400px] fade-up" style="animation-delay:0.4s">
+                    <div class="flex justify-between items-center mb-6">
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Biblioteca Local</p>
+                        <button onclick="fetchStats(); fetchFiles()" class="text-[10px] font-bold text-violet-400 hover:text-white transition-colors">ATUALIZAR</button>
+                    </div>
+                    <div id="lib-list" class="space-y-2 overflow-y-auto scrollable flex-1 pr-1">
+                        <!-- List -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" style="position:fixed;bottom:40px;left:50%;transform:translateX(-50%) translateY(40px);transition:0.4s cubic-bezier(0.16,1,0.3,1);opacity:0;pointer-events:none;z-index:2000" class="glass px-8 py-4 flex items-center gap-4 rounded-2xl shadow-2xl">
+        <span id="t-icon">✨</span>
+        <span id="t-msg" class="text-sm font-bold tracking-wide">Notificação</span>
+    </div>
+
+    <script>
+        const API = 'http://127.0.0.1:5001';
+        let state = { url:null, fmt:'mp4', res:'best', info:null, poll:null, busy:false };
+
+        function selectFmt(btn) {
+            document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.fmt = btn.dataset.fmt;
+            const isAudio = btn.dataset.type === 'audio';
+            document.getElementById('res-grid').style.display = isAudio ? 'none' : 'flex';
+        }
+        function selectRes(btn) {
+            document.querySelectorAll('[data-res]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.res = btn.dataset.res;
+        }
+
+        async function fetchVideoInfo() {
+            const url = document.getElementById('url-input').value.trim();
+            if(!url) return showToast('⚠️', 'Link necessário');
+            const btn = document.getElementById('fetch-btn');
+            btn.innerHTML = '<span class="spinner"></span>';
+            try {
+                const r = await fetch(`${API}/info`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) });
+                const d = await r.json();
+                if(d.error) throw d.error;
+                
+                state.url = url; state.info = d;
+                document.getElementById('v-thumb').src = d.thumbnail;
+                document.getElementById('v-title').textContent = d.title;
+                document.getElementById('v-meta').textContent = `${d.uploader} • ${d.duration}`;
+                
+                const pMap = { youtube:{n:'YouTube', c:'red'}, tiktok:{n:'TikTok', c:'slate'}, instagram:{n:'Instagram', c:'pink'}, vimeo:{n:'Vimeo', c:'blue'} };
+                const p = pMap[d.platform] || {n:'Web', c:'slate'};
+                document.getElementById('p-name').textContent = p.n;
+                document.getElementById('p-icon').textContent = p.n[0];
+                document.getElementById('p-icon').className = `platform-icon bg-${p.c}-500/20 text-${p.c}-400`;
+                document.getElementById('platform-preview').classList.remove('hidden');
+
+                document.getElementById('preview-empty').classList.add('hidden');
+                document.getElementById('preview-filled').classList.remove('hidden');
+                showToast('✅', 'Análise completa');
+            } catch(e) { showToast('❌', 'Erro na análise'); }
+            finally { btn.innerHTML = 'Analisar'; }
+        }
+
+        async function addToQueue() {
+            if(!state.url) return;
+            const start = document.getElementById('trim-start').value;
+            const end = document.getElementById('trim-end').value;
+            const body = {
+                url: state.url,
+                format: state.fmt,
+                resolution: state.res,
+                clip: (start || end) ? { start, end: end || null } : null,
+                metadata: document.getElementById('chk-metadata').checked,
+                cookies: document.getElementById('chk-cookies').checked,
+                playlist: document.getElementById('chk-playlist').checked
+            };
+            try {
+                await fetch(`${API}/download`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+                showToast('⏳', 'Adicionado à fila');
+                startPolling();
+            } catch { showToast('❌', 'Falha ao enfileirar'); }
+        }
+
+        function startPolling() {
+            if(state.poll) return;
+            state.poll = setInterval(async () => {
+                try {
+                    const status = await fetch(`${API}/status`).then(r=>r.json());
+                    const queue = await fetch(`${API}/queue`).then(r=>r.json());
+                    const stats = await fetch(`${API}/stats`).then(r=>r.json());
+                    updateStatusUI(status);
+                    updateQueueUI(queue);
+                    updateStatsUI(stats);
+                    
+                    const activeCount = Object.values(status).filter(s => ['Baixando','Convertendo...','Iniciando...','Na Fila'].includes(s.status)).length;
+                    if(activeCount === 0 && queue.length === 0) {
+                         if(!state.busy) { clearInterval(state.poll); state.poll = null; fetchFiles(); }
+                    }
+                } catch(e) {}
+            }, 3000);
+        }
+
+        function updateStatusUI(data) {
+            const list = document.getElementById('active-list');
+            list.innerHTML = '';
+            const active = Object.entries(data).filter(([u,s]) => !['Concluído', 'Erro', 'Cancelado', 'Na Fila'].includes(s.status));
+            if(!active.length) { list.innerHTML = '<p class="text-[11px] text-slate-600 italic text-center py-4">Nenhuma atividade</p>'; return; }
+            active.forEach(([u,s]) => {
+                const el = document.createElement('div'); el.className = 'space-y-2 group';
+                el.innerHTML = `
+                    <div class="flex justify-between items-end">
+                        <div class="flex items-center gap-2">
+                             <span class="text-[10px] font-bold text-violet-400 uppercase tracking-wider">${s.status}</span>
+                             <button onclick="cancelDownload('${u}')" class="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 bg-red-500/10 text-red-500 text-[8px] font-black rounded hover:bg-red-500/20 transition-all">CANCELAR</button>
+                        </div>
+                        <span class="text-[10px] font-black text-white">${s.progress}%</span>
+                    </div>
+                    <div class="progress-track h-2"><div class="progress-fill" style="width:${s.progress}%"></div></div>
+                    <div class="flex justify-between text-[9px] font-medium text-slate-500">
+                        <span class="truncate w-40">${u}</span>
+                        <span>${s.speed || '--'} • ETA: ${s.eta || '--'}</span>
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function updateQueueUI(data) {
+            const list = document.getElementById('queue-list'); list.innerHTML = '';
+            document.getElementById('queue-badge').textContent = `Fila: ${data.length}`;
+            if(!data.length) { list.innerHTML = '<p class="text-[11px] text-slate-600 italic text-center py-4">Fila vazia</p>'; return; }
+            data.forEach(item => {
+                const el = document.createElement('div'); el.className = 'glass-inset p-3 flex justify-between items-center group';
+                el.innerHTML = `
+                    <span class="text-[10px] font-bold text-slate-400 truncate w-32">${item.url}</span> 
+                    <div class="flex items-center gap-2">
+                         <span class="badge text-[8px] uppercase">${item.format}</span>
+                         <button onclick="cancelDownload('${item.url}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all">✕</button>
+                    </div>`;
+                list.appendChild(el);
+            });
+        }
+
+        async function cancelDownload(url) {
+            try {
+                await fetch(`${API}/cancel`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) });
+                showToast('🛑', 'Download cancelado');
+            } catch { showToast('❌', 'Erro ao cancelar'); }
+        }
+
+        async function fetchFiles() {
+            try {
+                const d = await fetch(`${API}/list`).then(r=>r.json());
+                const list = document.getElementById('lib-list'); list.innerHTML = '';
+                d.files.forEach(f => {
+                    const ext = f.name.split('.').pop().toUpperCase();
+                    const colors = { MP4:'#818cf8', MKV:'#6366f1', MP3:'#ec4899', M4A:'#f472b6', WAV:'#a78bfa' };
+                    const c = colors[ext] || '#94a3b8';
+                    const el = document.createElement('div'); el.className = 'glass-inset glass-hover group flex items-center gap-3 p-3 transition-all';
+                    el.innerHTML = `
+                        <div style="min-width:40px;height:40px;background:${c}15;border:1px solid ${c}40;" class="rounded-xl flex items-center justify-center text-[10px] font-black" style="color:${c}">${ext}</div>
+                        <div class="flex-1 overflow-hidden">
+                            <p class="text-[11px] font-bold text-slate-200 truncate">${f.name}</p>
+                            <p class="text-[9px] font-medium text-slate-500">${f.size}</p>
+                        </div>
+                        <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                            <button onclick="revealFile('${f.name}')" class="p-2 hover:bg-white/10 rounded-lg text-slate-400">📂</button>
+                            <button onclick="deleteFile('${f.name}')" class="p-2 hover:bg-red-500/20 rounded-lg text-red-400">🗑️</button>
+                        </div>`;
+                    list.appendChild(el);
+                });
+            } catch(e) {}
+        }
+
+        async function deleteFile(name) {
+            if(!confirm(`Excluir permanentemente: ${name}?`)) return;
+            const r = await fetch(`${API}/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+            if(r.ok) { fetchFiles(); fetchStats(); showToast('🗑️', 'Arquivo excluído'); }
+        }
+
+        function updateStatsUI(s) {
+            document.getElementById('stats-count').textContent = s.count || 0;
+            document.getElementById('stats-size').textContent = s.size || '0 MB';
+        }
+
+        async function fetchStats() { 
+            try {
+                const s = await fetch(`${API}/stats`).then(r=>r.json()); 
+                updateStatsUI(s);
+                document.getElementById('server-status').textContent = '● Online';
+                document.getElementById('server-status').className = 'text-[10px] font-bold text-emerald-500 uppercase flex items-center gap-1';
+            } catch(e) {
+                document.getElementById('server-status').textContent = '● Offline';
+                document.getElementById('server-status').className = 'text-[10px] font-bold text-red-500 uppercase flex items-center gap-1';
+            }
+        }
+        async function revealFile(n) { fetch(`${API}/open_file?name=${encodeURIComponent(n)}`); }
+        async function openFolderGlobal() { fetch(`${API}/open_file?name=`); }
+
+        function showToast(icon, msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('t-icon').textContent = icon;
+            document.getElementById('t-msg').textContent = msg;
+            t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(40px)'; }, 3500);
+        }
+
+        window.onload = () => { fetchFiles(); fetchStats(); startPolling(); };
+    </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools63 — Hub de Ferramentas SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="aurora">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <sidebar>
+            <div class="brand">
+                <div class="brand-icon">T</div>
+                <h1 class="brand-name">Tools63</h1>
+            </div>
+
+            <div class="nav-links">
+                <a href="#" class="nav-item active" onclick="loadTool('youtube')">
+                    <i class="fab fa-youtube"></i>
+                    <span>Youtube Downloader</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-magic"></i>
+                    <span>Em Breve...</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-image"></i>
+                    <span>Em Breve...</span>
+                </a>
+            </div>
+
+            <div class="user-profile">
+                <div class="user-avatar"></div>
+                <div style="flex: 1;">
+                    <p style="font-size: 11px; font-weight: 800; color: #fff;">Usuário Tools</p>
+                   <p style="font-size: 9px; font-weight: 600; color: #94a3b8;">Plano Premium</p>
+                </div>
+                <i class="fas fa-chevron-right" style="font-size: 10px; color: #475569;"></i>
+            </div>
+        </sidebar>
+
+        <!-- Main Workspace -->
+        <main>
+            <div class="top-bar">
+                <div class="flex items-center gap-4">
+                    <div id="connection-status" class="glass px-3 py-1.5 flex items-center gap-2 rounded-full">
+                        <div class="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                        <span style="font-size: 10px; font-weight: 800; color: #e2e8f0; text-transform: uppercase;">Servidor Online</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-frame">
+                <!-- Tool content will be loaded here -->
+                <iframe id="tool-iframe" src="tools/youtube/index.html" frameborder="0" style="width: 100%; height: 100%; border: none; border-radius: 30px;"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Tools63 Core logic
+        function loadTool(toolName) {
+            const iframe = document.getElementById('tool-iframe');
+            if (toolName === 'youtube') {
+                iframe.src = 'tools/youtube/index.html';
+            }
+        }
+    </script>
+</body>
+</html>

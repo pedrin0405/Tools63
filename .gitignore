@@ -1,0 +1,26 @@
+# Electron / Frontend
+node_modules/
+release/
+dist/
+
+# Python / Backend
+.venv/
+venv/
+backend/.venv/
+backend/dist/
+backend/build/
+*.pyc
+__pycache__/
+*.spec
+
+# Multimedia / App Data
+downloads/
+*/downloads/
+*.mp4
+*.mkv
+*.mp3
+*.wav
+
+# OS Specific
+.DS_Store
+Thumbs.db

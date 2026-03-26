@@ -1,0 +1,43 @@
+{
+  "name": "tools63",
+  "version": "1.0.0",
+  "description": "Tools63 — SaaS Desktop Suite",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:py": "cd backend && ../.venv/bin/pyinstaller --onefile --noconsole server.py",
+    "dist": "npm run build:py && electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "build": {
+    "appId": "com.tools63.app",
+    "productName": "Tools63",
+    "files": [
+      "src/**/*",
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      "backend/dist/**"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "directories": {
+      "output": "release"
+    }
+  },
+  "keywords": [],
+  "author": "Tools63 Team",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^41.0.4",
+    "electron-builder": "^25.1.8"
+  }
+}
