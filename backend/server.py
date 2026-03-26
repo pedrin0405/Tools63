@@ -11,17 +11,29 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yt_dlp
 
-# ── FORÇAR FECHAMENTO DE PORTA ANTERIOR ──
+# ── FORÇAR FECHAMENTO DE PORTA ANTERIOR (Cross-Platform) ──
 def kill_port(port):
     try:
-        if platform.system() == 'Darwin' or platform.system() == 'Linux':
+        sys_name = platform.system()
+        if sys_name == 'Windows':
+            # Comando Windows para encontrar PID na porta e matar
+            cmd = f'netstat -ano | findstr :{port}'
+            lines = subprocess.check_output(cmd, shell=True).decode().strip().split('\n')
+            for line in lines:
+                if 'LISTENING' in line:
+                    pid = line.strip().split()[-1]
+                    subprocess.run(['taskkill', '/F', '/T', '/PID', pid], capture_output=True)
+            print(f"[OK] Porta {port} liberada (Windows).")
+        else:
+            # Comando macOS/Linux
             output = subprocess.check_output(['lsof', '-ti', f':{port}']).decode().strip()
             if output:
                 for pid in output.split('\n'):
                     os.kill(int(pid), signal.SIGTERM)
-                print(f"[OK] Porta {port} liberada.")
-                time.sleep(1)
-    except: pass
+                print(f"[OK] Porta {port} liberada (Unix).")
+        time.sleep(1)
+    except:
+        pass
 
 PORT = 5001
 kill_port(PORT)
