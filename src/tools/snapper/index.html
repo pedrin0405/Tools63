@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Snapper — Tools63</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: transparent; min-height: 100vh; overflow-x: hidden; color: #e2e8f0; padding: 20px; }
+
+        /* Unified Glassmorphism */
+        .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(50px) saturate(180%); -webkit-backdrop-filter: blur(50px) saturate(180%); border: 1px solid rgba(255,255,255,0.12); border-radius: 30px; }
+        .glass-inset { background: rgba(255,255,255,0.04); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; }
+        .glass-hover:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+
+        .glass-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; color: #fff; outline: none; transition: all 0.25s; }
+        .glass-input:focus { background: rgba(255,255,255,0.09); border-color: rgba(139,92,246,0.6); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+
+        /* Unified Gradient Theme */
+        .btn-gradient { background: linear-gradient(135deg, #8b5cf6, #ec4899, #f97316); background-size: 200% 200%; animation: gradientShift 5s ease infinite; border-radius: 15px; font-weight: 700; color: white; transition: all 0.2s; }
+        @keyframes gradientShift { 0% { background-position: 0% 50% } 50% { background-position: 100% 50% } 100% { background-position: 0% 50% } }
+        .btn-gradient:hover { transform: scale(1.02); box-shadow: 0 10px 40px rgba(139,92,246,0.4); }
+        
+        .btn-glass { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; font-weight: 600; color: #cbd5e1; transition: all 0.2s; }
+        .btn-glass:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+        .phone-mockup { width: 180px; height: 320px; border: 4px solid rgba(255,255,255,0.1); border-radius: 24px; position: relative; overflow: hidden; background: #000; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+        .phone-screen { width: 100%; height: 100%; object-fit: cover; }
+        
+        .opt-tab { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 7px 12px; font-size: 11px; font-weight: 600; color: #94a3b8; cursor: pointer; transition: 0.2s; }
+        .opt-tab.active { background: rgba(139,92,246,0.25); border-color: rgba(139,92,246,0.5); color: #c4b5fd; }
+        
+        .fade-up { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+        .platform-icon { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+        .scrollable::-webkit-scrollbar { width: 5px; }
+        .scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="p-6">
+    <div class="flex flex-col items-center">
+        <!-- Unified Header -->
+        <div class="w-full max-w-6xl flex items-center justify-between gap-4 mb-8 fade-up">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 glass flex items-center justify-center text-2xl shadow-xl">📱</div>
+                <div>
+                    <h1 class="text-2xl font-black text-white tracking-tight">Social Snapper</h1>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Reels • TikTok • Shorts</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                 <button onclick="revealFile('')" class="btn-glass px-4 py-2 text-xs flex items-center gap-2">📁 Downloads</button>
+                 <button onclick="window.location.reload()" class="btn-glass px-4 py-2 text-xs flex items-center gap-2">↻ Limpar</button>
+            </div>
+        </div>
+
+        <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <!-- Left Area: Input & Preview -->
+            <div class="lg:col-span-8 flex flex-col gap-8">
+                <div class="glass p-8 fade-up" style="animation-delay:0.1s">
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px] mb-6">Link do Conteúdo Viral</p>
+                    <div class="flex gap-4">
+                        <input id="mediaUrl" type="url" placeholder="https://www.tiktok.com/..." class="glass-input flex-1 px-5 h-14 text-base"/>
+                        <button id="checkBtn" onclick="checkInfo()" class="btn-gradient px-8 h-14 text-sm flex items-center gap-2 min-w-[140px] justify-center">
+                            Analisar
+                            <div id="checkLoader" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
+                    </div>
+                    <div class="flex gap-4 mt-6">
+                         <button onclick="pasteFromClipboard()" class="btn-glass px-4 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">📋 Colar Link</button>
+                    </div>
+                </div>
+
+                <div id="previewCard" class="hidden glass p-10 fade-up relative overflow-hidden" style="animation-delay:0.2s">
+                    <div class="flex flex-col md:flex-row gap-10 items-center md:items-start text-center md:text-left">
+                        <div class="phone-mockup shrink-0 shadow-2xl mx-auto md:mx-0">
+                            <img id="thumb" class="phone-screen" src="" alt="Thumbnail">
+                        </div>
+                        <div class="flex-1 space-y-8">
+                            <div>
+                                <h4 id="videoTitle" class="text-2xl font-black text-white leading-tight mb-2 line-clamp-2">Título do Vídeo</h4>
+                                <div class="flex items-center justify-center md:justify-start gap-3">
+                                    <div id="p-icon" class="platform-icon bg-indigo-500/20 text-indigo-400">V</div>
+                                    <p id="videoUploader" class="text-sm font-bold text-slate-400">@handle</p>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ações</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button onclick="startSnapping('mp4')" class="btn-gradient py-4 text-xs tracking-widest uppercase">🎬 Vídeo HD</button>
+                                    <button onclick="startSnapping('mp3')" class="btn-glass py-4 text-xs tracking-widest uppercase">🎵 Apenas Áudio</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Area: Activity & Library -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <!-- Status -->
+                <div class="glass p-8 fade-up" style="animation-delay:0.3s">
+                    <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px] mb-6">Atividade</h4>
+                    <div id="statusList" class="space-y-4">
+                        <p class="text-[11px] text-slate-600 italic text-center py-6">Nenhuma atividade</p>
+                    </div>
+                </div>
+
+                <!-- Library (Exactly like Youtube Downloader) -->
+                <div class="glass flex-1 p-8 flex flex-col min-h-[450px] fade-up" style="animation-delay:0.4s">
+                    <div class="flex justify-between items-center mb-6">
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Biblioteca Local</p>
+                        <button onclick="fetchFiles()" class="text-[10px] font-bold text-violet-400 hover:text-white transition-colors">ATUALIZAR</button>
+                    </div>
+                    <div id="lib-list" class="space-y-2 overflow-y-auto scrollable flex-1 pr-1">
+                        <p class="text-[11px] text-slate-600 italic text-center py-10">Buscando arquivos...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast UI -->
+    <div id="toast" style="position:fixed;bottom:40px;left:50%;transform:translateX(-50%) translateY(40px);transition:0.4s cubic-bezier(0.16,1,0.3,1);opacity:0;pointer-events:none;z-index:2000" class="glass px-8 py-4 flex items-center gap-4 rounded-2xl shadow-2xl">
+        <span id="t-icon">✨</span>
+        <span id="t-msg" class="text-sm font-bold tracking-wide">Notificação</span>
+    </div>
+
+    <script>
+        const API = 'http://127.0.0.1:5001';
+        
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('mediaUrl').value = text;
+            } catch (err) {}
+        }
+
+        async function checkInfo() {
+            const url = document.getElementById('mediaUrl').value;
+            if (!url) return;
+            const btn = document.getElementById('checkBtn');
+            const loader = document.getElementById('checkLoader');
+            btn.classList.add('opacity-50'); loader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${API}/info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                document.getElementById('thumb').src = data.thumbnail;
+                document.getElementById('videoTitle').innerText = data.title;
+                document.getElementById('videoUploader').innerText = data.uploader || '@social';
+                document.getElementById('p-icon').innerText = (data.platform || 'S')[0].toUpperCase();
+                document.getElementById('previewCard').classList.remove('hidden');
+                showToast('✅', 'Mídia analisada!');
+            } catch (err) { alert('Erro: ' + err.message); }
+            finally { btn.classList.remove('opacity-50'); loader.classList.add('hidden'); }
+        }
+
+        async function startSnapping(format) {
+            const url = document.getElementById('mediaUrl').value;
+            try {
+                await fetch(`${API}/download`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format, resolution: 'best' })
+                });
+                showToast('🚀', 'Captura iniciada!');
+                updateStatus();
+            } catch (err) {}
+        }
+
+        async function updateStatus() {
+            try {
+                const response = await fetch(`${API}/status`);
+                const status = await response.json();
+                const container = document.getElementById('statusList');
+                const active = Object.entries(status).filter(([_, i]) => !['Concluído', 'Erro'].includes(i.status));
+                
+                if (active.length === 0) {
+                    container.innerHTML = '<p class="text-[11px] text-slate-600 italic text-center py-6">Nenhuma atividade</p>';
+                    return;
+                }
+
+                container.innerHTML = active.map(([url, info]) => `
+                    <div class="glass-inset p-4 space-y-3">
+                        <div class="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
+                            <span class="text-violet-400">${info.status}</span>
+                            <span class="text-white">${info.progress}%</span>
+                        </div>
+                        <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-violet-500 to-pink-500" style="width: ${info.progress}%"></div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {}
+        }
+
+        async function fetchFiles() {
+            try {
+                const d = await fetch(`${API}/list`).then(r=>r.json());
+                const list = document.getElementById('lib-list'); list.innerHTML = '';
+                if(!d.files.length) { list.innerHTML = '<p class="text-[11px] text-slate-600 italic text-center py-10">Biblioteca vazia</p>'; return; }
+                d.files.forEach(f => {
+                    const ext = f.name.split('.').pop().toUpperCase();
+                    const colors = { MP4:'#818cf8', MKV:'#6366f1', MP3:'#ec4899', M4A:'#f472b6', WAV:'#a78bfa' };
+                    const c = colors[ext] || '#94a3b8';
+                    const el = document.createElement('div'); el.className = 'glass-inset glass-hover group flex items-center gap-3 p-3 transition-all';
+                    el.innerHTML = `
+                        <div style="min-width:34px;height:34px;background:${c}15;border:1px solid ${c}40;" class="rounded-lg flex items-center justify-center text-[9px] font-black" style="color:${c}">${ext}</div>
+                        <div class="flex-1 overflow-hidden">
+                            <p class="text-[10px] font-bold text-slate-200 truncate">${f.name}</p>
+                            <p class="text-[8px] font-medium text-slate-500">${f.size}</p>
+                        </div>
+                        <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                            <button onclick="revealFile('${f.name}')" class="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 text-xs text-center flex items-center">📂</button>
+                            <button onclick="deleteFile('${f.name}')" class="p-1.5 hover:bg-red-500/20 rounded-lg text-red-400 text-xs text-center flex items-center">🗑️</button>
+                        </div>`;
+                    list.appendChild(el);
+                });
+            } catch(e) {}
+        }
+
+        async function deleteFile(name) {
+            if(!confirm(`Excluir permanentemente: ${name}?`)) return;
+            const r = await fetch(`${API}/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+            if(r.ok) { fetchFiles(); showToast('🗑️', 'Arquivo excluído'); }
+        }
+
+        async function revealFile(n) { fetch(`${API}/open_file?name=${encodeURIComponent(n)}`); }
+
+        function showToast(icon, msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('t-icon').textContent = icon;
+            document.getElementById('t-msg').textContent = msg;
+            t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(40px)'; }, 3000);
+        }
+
+        window.onload = () => { fetchFiles(); setInterval(updateStatus, 3000); };
+    </script>
+</body>
+</html>

@@ -28,9 +28,17 @@
                     <i class="fab fa-youtube"></i>
                     <span>Youtube Downloader</span>
                 </a>
+                <a href="#" class="nav-item" onclick="loadTool('snapper')">
+                    <i class="fab fa-tiktok"></i>
+                    <span>Social Snapper</span>
+                </a>
                 <a href="#" class="nav-item">
                     <i class="fas fa-magic"></i>
                     <span>Em Breve...</span>
+                </a>
+                <a href="#" class="nav-item" onclick="loadTool('anime')">
+                    <i class="fas fa-play-circle"></i>
+                    <span>Anime Hub</span>
                 </a>
                 <a href="#" class="nav-item">
                     <i class="fas fa-image"></i>
@@ -70,8 +78,19 @@
         // Tools63 Core logic
         function loadTool(toolName) {
             const iframe = document.getElementById('tool-iframe');
+            // Remove active from all
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            // Add active to current
+            const clicked = event ? event.currentTarget : null;
+            if (clicked) clicked.classList.add('active');
+
             if (toolName === 'youtube') {
                 iframe.src = 'tools/youtube/index.html';
+            } else if (toolName === 'snapper') {
+                iframe.src = 'tools/snapper/index.html';
+            } else if (toolName === 'anime') {
+                iframe.src = 'tools/anime/index.html';
             }
         }
     </script>

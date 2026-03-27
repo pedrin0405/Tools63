@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Hub PT-BR — Premium Streaming</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --accent: #FF6400; /* Crunchyroll Orange */
+            --accent-glow: rgba(255, 100, 0, 0.4);
+            --bg: #0c0a1a;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: var(--bg); 
+            color: #fff; 
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Netflix-style Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        .glass { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); }
+        .glass-dark { background: rgba(0,0,0,0.8); backdrop-filter: blur(30px); }
+        
+        /* Navbar */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            padding: 20px 60px;
+            transition: 0.4s;
+            display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        }
+        nav.scrolled { background: var(--bg); padding: 15px 60px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+        /* Hero Section (Netflix Style) */
+        .hero {
+            height: 85vh;
+            position: relative;
+            display: flex; align-items: center;
+            padding: 0 60px;
+            overflow: hidden;
+        }
+        .hero-video-bg {
+            position: absolute; inset: 0;
+            background-size: cover; background-position: center;
+            transition: 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: brightness(0.6);
+            transform: scale(1.05);
+        }
+        .hero-video-bg.loading { filter: brightness(0.2) blur(10px); }
+        
+        .hero-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(to right, var(--bg) 10%, transparent 70%),
+                        linear-gradient(to top, var(--bg) 0%, transparent 40%);
+        }
+        .hero-content { position: relative; z-index: 10; max-width: 650px; }
+        
+        /* Rows (Netflix Style) */
+        .row-container { padding: 40px 0 20px 60px; position: relative; }
+        .row-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 20px; color: #e5e5e5; display: flex; align-items: center; gap: 10px; }
+        .row-title::before { content: ''; width: 4px; height: 20px; background: var(--accent); border-radius: 2px; }
+        
+        .row-scroll {
+            display: flex; gap: 15px; overflow-x: auto; overflow-y: hidden;
+            padding: 10px 60px 30px 0;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: none;
+        }
+        .row-scroll::-webkit-scrollbar { display: none; }
+        
+        .anime-card {
+            flex: 0 0 220px;
+            aspect-ratio: 16/9;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            scroll-snap-align: start;
+            background: #1a1a1a;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .anime-card img { width: 100%; height: 100%; object-fit: cover; transition: 0.4s; }
+        .anime-card:hover { transform: scale(1.15); z-index: 50; box-shadow: 0 15px 40px rgba(0,0,0,0.9); border: 2px solid var(--accent); }
+        .card-info {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            padding: 15px;
+            background: linear-gradient(to top, rgba(0,0,0,1) 0%, transparent 100%);
+            opacity: 0; transition: 0.3s;
+        }
+        .anime-card:hover .card-info { opacity: 1; }
+
+        /* Buttons */
+        .btn-orange { 
+            background: var(--accent); color: #fff; 
+            padding: 12px 30px; border-radius: 4px; 
+            font-weight: 800; font-size: 14px;
+            display: flex; align-items: center; gap: 10px;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+        .btn-orange:hover { filter: brightness(1.2); transform: translateY(-2px); box-shadow: 0 8px 25px var(--accent-glow); }
+        .btn-gray { 
+            background: rgba(255,255,255,0.15); color: #fff; 
+            padding: 12px 30px; border-radius: 4px; 
+            font-weight: 800; font-size: 14px;
+            backdrop-filter: blur(10px);
+            display: flex; align-items: center; gap: 10px;
+            transition: 0.3s;
+        }
+        .btn-gray:hover { background: rgba(255,255,255,0.25); }
+
+        /* Modal / Detailed Info */
+        .modal {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0,0,0,0.9);
+            display: none; align-items: flex-start; justify-content: center;
+            padding: 40px; overflow-y: auto;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #141414; width: 100%; max-width: 1000px;
+            border-radius: 12px; overflow: hidden;
+            position: relative;
+            transform: scale(0.9); opacity: 0; transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 100px rgba(0,0,0,1);
+        }
+        .modal.active .modal-content { transform: scale(1); opacity: 1; }
+
+        /* Audio Selector Tabs */
+        .audio-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+        .audio-tab { 
+            padding: 6px 14px; border-radius: 20px; background: rgba(255,255,255,0.05);
+            font-size: 11px; font-weight: 900; color: #777; cursor: pointer; transition: 0.3s;
+            text-transform: uppercase; border: 1px solid transparent;
+        }
+        .audio-tab:hover { background: rgba(255,255,255,0.1); }
+        .audio-tab.active { background: var(--accent); color: #fff; box-shadow: 0 4px 12px var(--accent-glow); border-color: var(--accent); }
+
+        /* Episode List Style (Crunchyroll Style) */
+        .ep-list-container {
+            display: flex; flex-direction: column; gap: 12px;
+            max-height: 400px; overflow-y: auto; padding-right: 10px;
+        }
+        .ep-row {
+            display: flex; align-items: center; gap: 20px; padding: 15px;
+            background: #1f1f1f; border-radius: 10px; cursor: pointer;
+            transition: 0.3s; border-left: 0px solid var(--accent);
+        }
+        .ep-row:hover { background: #2a2a2a; border-left-width: 5px; transform: translateX(5px); }
+        .ep-thumb {
+            width: 140px; aspect-ratio: 16/9; background: #333; border-radius: 6px;
+            overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+            font-size: 20px; color: #555;
+        }
+        .ep-info h4 { font-weight: 800; font-size: 15px; margin-bottom: 4px; }
+        .ep-info p { font-size: 12px; color: #888; }
+
+        /* Animation */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.8s ease-out forwards; }
+
+        /* Shimmer Loading */
+        .shimmer {
+            background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer { 100% { background-position: -200% 0; } }
+
+        /* Search Overlay & Filter Result */
+        #searchOverlay {
+            position: fixed; inset: 0; z-index: 1500;
+            background: var(--bg); display: none;
+            padding: 100px 60px; overflow-y: auto;
+        }
+        #searchOverlay.active { display: block; }
+        
+        .search-header { 
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1600;
+            padding: 30px 60px; background: var(--bg); display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .type-badge { background: var(--accent); font-weight: 900; font-size: 10px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+        
+        /* Skeleton Modal */
+        .skeleton { color: transparent !important; background: #222 !important; border-radius: 4px; position: relative; overflow: hidden; }
+        .skeleton::after {
+            content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+            transform: translateX(-100%);
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%);
+            animation: shimmer 2s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <nav id="navbar">
+        <div class="flex items-center gap-10">
+            <h1 class="text-2xl font-black tracking-tighter text-white flex items-center gap-2 cursor-pointer" onclick="goHome()">
+                <span class="text-[--accent]">ANIME</span>HUB
+            </h1>
+            <div class="hidden md:flex gap-6 text-sm font-bold text-gray-400">
+                <a href="javascript:void(0)" onclick="goHome()" class="nav-link text-white transition active">Início</a>
+                <a href="javascript:void(0)" onclick="loadFilter('Séries', 'tv')" class="nav-link hover:text-white transition">Séries</a>
+                <a href="javascript:void(0)" onclick="loadFilter('Filmes', 'movie')" class="nav-link hover:text-white transition">Filmes</a>
+                <a href="javascript:void(0)" onclick="loadFilter('Favoritos', 'favorite')" class="nav-link hover:text-white transition">Favoritos</a>
+            </div>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="relative flex items-center group">
+                <i class="fas fa-search absolute left-4 text-gray-500 group-focus-within:text-[--accent] transition"></i>
+                <input type="text" id="mainSearch" placeholder="Títulos, personagens..." 
+                       class="bg-black/40 border border-white/10 rounded-full py-2.5 pl-12 pr-10 text-sm focus:w-80 transition-all duration-500 w-48 focus:border-[--accent] focus:bg-black/60 shadow-inner">
+                <button id="clearSearch" onclick="clearSearch()" class="absolute right-4 text-gray-600 hover:text-white transition opacity-0">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            </div>
+            <div class="w-9 h-9 rounded-md bg-gradient-to-tr from-orange-600 to-yellow-500 shadow-lg cursor-pointer hover:ring-2 ring-orange-500 transition"></div>
+        </div>
+    </nav>
+
+    <div id="mainContent">
+        <!-- Header Billboard (Netflix Style) -->
+        <header class="hero" id="hero">
+            <div class="hero-video-bg" id="heroImage" style="background-image: url('https://images.alphacoders.com/132/1321727.png')"></div>
+            <div class="hero-overlay"></div>
+            <div class="hero-content fade-in">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="type-badge">Original</span>
+                    <span class="text-xs font-black uppercase tracking-widest text-shadow">AnimeHub Premium</span>
+                </div>
+                <h1 class="text-7xl font-black mb-6 leading-none tracking-tighter uppercase italic" id="heroTitle">
+                    Buscando Destaques...
+                </h1>
+                <p class="text-lg text-gray-300 mb-8 max-w-xl line-clamp-3 font-medium" id="heroDesc">
+                    Carregando a melhor experiência de streaming gratuito...
+                </p>
+                <div class="flex gap-4">
+                    <button class="btn-orange" id="heroPlayBtn">
+                        <i class="fas fa-play"></i> Assistir Agora
+                    </button>
+                    <button class="btn-gray" onclick="showInfoFromHero()">
+                        <i class="fas fa-info-circle"></i> Mais Informações
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="-mt-20 relative z-10 pb-40">
+            <section class="row-container" id="sectionProgress" style="display: none;">
+                <h3 class="row-title">Continuar Assistindo</h3>
+                <div class="row-scroll" id="rowProgress"></div>
+            </section>
+
+            <section class="row-container">
+                <h3 class="row-title">Tendências Atuais</h3>
+                <div class="row-scroll" id="rowTrending">
+                    <div class="anime-card shimmer"></div>
+                    <div class="anime-card shimmer"></div>
+                    <div class="anime-card shimmer"></div>
+                    <div class="anime-card shimmer"></div>
+                    <div class="anime-card shimmer"></div>
+                </div>
+            </section>
+
+            <section class="row-container">
+                <h3 class="row-title">Ação & Adrenalina</h3>
+                <div class="row-scroll" id="rowAction"></div>
+            </section>
+
+            <section class="row-container">
+                <h3 class="row-title">Drama & Emoção</h3>
+                <div class="row-scroll" id="rowRecs"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Filter/Search Results Overlay -->
+    <div id="searchOverlay">
+        <div class="search-header glass-dark">
+            <h2 class="text-3xl font-black uppercase"><span id="searchResultLabel">Resultados</span>: "<span id="searchResultQuery"></span>"</h2>
+            <button onclick="closeSearch()" class="w-12 h-12 rounded-full glass flex items-center justify-center hover:bg-white/20 transition text-2xl">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="searchGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            <!-- Results Generated Here -->
+        </div>
+    </div>
+
+    <!-- Detailed Modal (Netflix Style Info) -->
+    <div id="infoModal" class="modal" onclick="if(event.target==this) closeInfo()">
+        <div class="modal-content">
+            <div class="relative h-[500px]">
+                <div class="absolute inset-0 bg-cover bg-center transition-all duration-700" id="modalHeroBg"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-black/30"></div>
+                <button onclick="closeInfo()" class="absolute top-8 right-8 w-12 h-12 rounded-full glass flex items-center justify-center hover:bg-white/20 transition z-50">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <div class="absolute bottom-12 left-12 right-12 z-20">
+                    <div id="modalLoadingBadge" class="mb-4 inline-block px-3 py-1 bg-white/10 rounded-full animate-pulse text-[10px] uppercase font-bold tracking-widest">Carregando Detalhes...</div>
+                    <h2 class="text-6xl font-black mb-8 uppercase italic tracking-tighter drop-shadow-2xl" id="modalTitle">Título</h2>
+                    <div class="flex gap-4">
+                        <button class="btn-orange !py-4 !px-12 !text-lg" id="modalPlayBtn">
+                            <i class="fas fa-play"></i> Assistir E01
+                        </button>
+                        <button class="w-16 h-16 rounded-full glass border-2 border-white/20 flex items-center justify-center hover:bg-white/10 transition text-2xl">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button class="w-16 h-16 rounded-full glass border-2 border-white/20 flex items-center justify-center hover:bg-white/10 transition text-2xl">
+                            <i class="far fa-thumbs-up"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-12 bg-[#141414] grid grid-cols-12 gap-12">
+                <div class="col-span-12 lg:col-span-8 space-y-8">
+                    <div class="flex items-center gap-6 text-sm font-black">
+                        <span class="text-green-500" id="modalMatch">98% correspondência</span>
+                        <span id="modalYear">2024</span>
+                        <span class="border border-white/40 px-2.5 py-0.5 rounded-sm text-[10px]">4K HDR</span>
+                        <span class="text-gray-400 font-bold" id="modalStatus">ATIVO</span>
+                        <div class="flex gap-2" id="modalGenres"></div>
+                    </div>
+                    <p class="text-gray-300 leading-relaxed text-xl font-medium tracking-wide" id="modalDesc">
+                        Carregando sinopse oficial...
+                    </p>
+                </div>
+                
+                <div class="col-span-12 lg:col-span-4 border-l border-white/5 pl-8">
+                    <!-- Audio Multi-Selection -->
+                    <h4 class="text-[10px] font-black uppercase text-gray-500 mb-3 tracking-widest">Idioma / Áudio</h4>
+                    <div class="audio-tabs" id="modalAudioTabs">
+                        <div class="audio-tab active" onclick="switchAudio('legendado')">Legendado</div>
+                        <div class="audio-tab" onclick="switchAudio('dublado')">Dublado</div>
+                        <div class="audio-tab" onclick="switchAudio('ingles')">Inglês</div>
+                    </div>
+
+                    <h4 class="text-xs font-black uppercase text-gray-500 mb-6 tracking-widest flex items-center justify-between">
+                        Episódios 
+                        <span id="epCount" class="text-[--accent]">--</span>
+                    </h4>
+                    <div class="ep-list-container custom-scroll" id="modalEpList">
+                        <!-- Episode list styled like Crunchyroll -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Player -->
+    <div id="playerOverlay" class="fixed inset-0 z-[3000] bg-black hidden flex-col">
+        <div class="h-24 flex items-center justify-between px-12 glass-dark border-b border-white/5">
+            <div class="flex items-center gap-6">
+                <button onclick="closePlayer()" class="text-3xl hover:text-[--accent] transition mr-4"><i class="fas fa-arrow-left"></i></button>
+                <div>
+                    <h3 class="font-black text-lg uppercase tracking-wider" id="playingTitle">Anime Name</h3>
+                    <p class="text-xs text-[--accent] font-black uppercase tracking-widest" id="playingEp">Episódio 01</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-8 text-gray-400">
+                <i class="fas fa-closed-captioning text-2xl"></i>
+                <i class="fas fa-cog text-2xl"></i>
+                <i class="fas fa-question-circle text-2xl"></i>
+            </div>
+        </div>
+        <div class="flex-1 relative bg-black">
+            <iframe id="videoIframe" class="w-full h-full" allowfullscreen frameborder="0"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://127.0.0.1:5001';
+        let currentAnimeData = null;
+        let selectedAudio = 'legendado';
+        const ANIME_CACHE_FRONT = {}; // Client-side cache
+
+        // Predictive Pre-fetch: Fetch info on hover
+        function prefetchAnime(id) {
+            if(!ANIME_CACHE_FRONT[id]) {
+                fetch(`${API}/anime/info/${id}`)
+                    .then(r => r.json())
+                    .then(data => { ANIME_CACHE_FRONT[id] = data; })
+                    .catch(() => {});
+            }
+        }
+
+        // Helper: Clear Data in Modal
+        function resetModal() {
+            document.getElementById('modalHeroBg').style.backgroundImage = 'none';
+            document.getElementById('modalHeroBg').style.backgroundColor = '#222';
+            document.getElementById('modalTitle').innerHTML = '<span class="skeleton">Título Carregando...</span>';
+            document.getElementById('modalDesc').innerHTML = '<div class="skeleton h-4 mb-2"></div><div class="skeleton h-4 mb-2 w-2/3"></div>';
+            document.getElementById('modalGenres').innerHTML = '';
+            document.getElementById('modalYear').innerText = '----';
+            document.getElementById('modalEpList').innerHTML = Array(3).fill('<div class="ep-row skeleton h-24 mb-3"></div>').join('');
+            document.getElementById('modalLoadingBadge').style.display = 'inline-block';
+            document.getElementById('epCount').innerText = '--';
+            document.getElementById('modalAudioTabs').innerHTML = '';
+            selectedAudio = 'legendado';
+        }
+
+        function closeInfo() {
+            document.body.style.overflow = 'auto';
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('active');
+            currentAnimeData = null;
+        }
+
+        function switchAudio(audio) {
+            selectedAudio = audio;
+            document.querySelectorAll('.audio-tab').forEach(t => {
+                t.classList.toggle('active', t.getAttribute('onclick').includes(`'${audio}'`));
+            });
+            renderEpisodes();
+        }
+
+        function goHome() {
+            closeInfo();
+            document.getElementById('searchOverlay').classList.remove('active');
+            document.getElementById('mainContent').style.display = 'block';
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('text-white', 'active'));
+            document.querySelector('.nav-link[onclick="goHome()"]').classList.add('text-white', 'active');
+            window.scrollTo(0,0);
+        }
+
+        async function loadFilter(label, typeId) {
+            if(typeId === 'favorite') { alert("Favoritos em desenvolvimento!"); return; }
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('searchOverlay').classList.add('active');
+            document.getElementById('searchResultLabel').innerText = label;
+            document.getElementById('searchResultQuery').innerText = "Catálogo";
+            document.getElementById('searchGrid').innerHTML = Array(12).fill('<div class="aspect-[16/9] shimmer rounded-lg"></div>').join('');
+            
+            document.querySelectorAll('.nav-link').forEach(l => {
+                l.classList.remove('text-white', 'active');
+                if(l.innerText === label) l.classList.add('text-white', 'active');
+            });
+
+            try {
+                const r = await fetch(`${API}/anime/type/${typeId}`);
+                const d = await r.json();
+                renderSearch(d.results || []);
+            } catch(e) { console.error(e); }
+        }
+
+        async function init() {
+            loadProgress();
+            loadTrending();
+            loadCategory('Ação', 'rowAction', 1);
+            loadCategory('Drama', 'rowRecs', 8);
+        }
+
+        async function loadTrending() {
+            try {
+                const r = await fetch(`${API}/anime/trending`);
+                const d = await r.json();
+                renderRow(d.results || [], 'rowTrending');
+                if(d.results && d.results[0]) setupHero(d.results[0]);
+            } catch(e) {}
+        }
+
+        async function loadCategory(name, elementId, genreId) {
+            try {
+                const r = await fetch(`${API}/anime/genre/${genreId}`);
+                const d = await r.json();
+                renderRow(d.results || [], elementId);
+            } catch(e) {}
+        }
+
+        function renderRow(list, containerId) {
+            const container = document.getElementById(containerId);
+            if(!list.length) return;
+            container.innerHTML = list.map(item => `
+                <div class="anime-card" onmouseenter="prefetchAnime('${item.id}')" onclick="openInfo('${item.id}')">
+                    <img src="${item.image}" alt="${item.title}" loading="lazy">
+                    <div class="card-info">
+                        <h4 class="text-xs font-black truncate">${item.title}</h4>
+                        <div class="flex items-center gap-2 mt-2 text-[10px] text-gray-400">
+                            <span class="text-green-500 font-bold">${Math.floor(Math.random()*20)+80}% Match</span>
+                            <span>${item.releaseDate}</span>
+                            <span class="type-badge !bg-gray-700 !text-[8px]">${item.type}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function setupHero(anime) {
+            const imgEl = document.getElementById('heroImage');
+            imgEl.classList.add('loading');
+            setTimeout(() => {
+                imgEl.style.backgroundImage = `url('${anime.image}')`;
+                imgEl.classList.remove('loading');
+            }, 100);
+            
+            document.getElementById('heroTitle').innerText = anime.title;
+            document.getElementById('heroDesc').innerText = anime.description || "Assista agora a este incrível anime no AnimeHub.";
+            document.getElementById('heroPlayBtn').onclick = () => openInfo(anime.id);
+            currentAnimeData = anime;
+        }
+
+        function showInfoFromHero() {
+            if(currentAnimeData) openInfo(currentAnimeData.id);
+        }
+
+        async function openInfo(id) {
+            document.body.style.overflow = 'hidden';
+            resetModal();
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('active');
+            
+            try {
+                // Use Client Cache if available
+                let data = ANIME_CACHE_FRONT[id];
+                if(!data) {
+                    const r = await fetch(`${API}/anime/info/${id}`);
+                    data = await r.json();
+                    ANIME_CACHE_FRONT[id] = data; // Save for next time
+                }
+                
+                currentAnimeData = data;
+
+                document.getElementById('modalLoadingBadge').style.display = 'none';
+                document.getElementById('modalHeroBg').style.backgroundImage = `url('${data.image}')`;
+                document.getElementById('modalTitle').innerText = data.title;
+                document.getElementById('modalDesc').innerText = data.description || 'Descrição não disponível.';
+                document.getElementById('modalYear').innerText = data.releaseDate || '2024';
+                
+                document.getElementById('modalGenres').innerHTML = (data.genres || []).map(g => `
+                    <span class="px-2 py-0.5 bg-gray-800 text-[9px] text-gray-300 font-black rounded-sm uppercase tracking-tighter">${g}</span>
+                `).join('');
+
+                // Mapping for pretty names
+                const audioNames = {
+                    'legendado': 'Leg. (PT)',
+                    'dublado': 'Dub. (PT)',
+                    'japones': 'Leg. (INT)',
+                    'ingles': 'Dub. (EN)'
+                };
+
+                // Audit and dynamic tab generation (Fixing Inconsistency)
+                const audios = [...new Set((data.episodes || []).map(e => e.audio || 'legendado'))];
+                const tabsContainer = document.getElementById('modalAudioTabs');
+                tabsContainer.innerHTML = audios.map(a => `
+                    <div class="audio-tab" onclick="switchAudio('${a}')">${audioNames[a] || a.toUpperCase()}</div>
+                `).join('');
+                
+                // Prioritization logic for default selection
+                if(audios.includes('dublado')) switchAudio('dublado');
+                else if(audios.includes('legendado')) switchAudio('legendado');
+                else if(audios.length > 0) switchAudio(audios[0]);
+                else renderEpisodes();
+
+            } catch(e) { console.error(e); closeInfo(); }
+        }
+
+        function renderEpisodes() {
+            const epList = document.getElementById('modalEpList');
+            if(!currentAnimeData || !currentAnimeData.episodes) return;
+            
+            // Group by number
+            const grouped = {};
+            const filtered = currentAnimeData.episodes.filter(e => (e.audio || 'legendado') === selectedAudio);
+            
+            filtered.forEach(e => {
+                if(!grouped[e.number]) grouped[e.number] = [];
+                grouped[e.number].push(e);
+            });
+
+            const sortedNums = Object.keys(grouped).sort((a,b) => parseFloat(a) - parseFloat(b));
+            document.getElementById('epCount').innerText = sortedNums.length;
+            
+            if(sortedNums.length > 0) {
+                const providerNames = {
+                    'animefire': 'Fire',
+                    'betteranime': 'Better',
+                    'animesonline': 'NZ',
+                    'gogoanime': 'Gogo',
+                    'zoro': 'Zoro'
+                };
+
+                epList.innerHTML = sortedNums.map(num => {
+                    const eps = grouped[num];
+                    return `
+                        <div class="ep-row group flex items-start gap-4">
+                            <div class="ep-thumb self-start mt-2"><i class="fas fa-play opacity-0 group-hover:opacity-100 transition"></i></div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-black text-sm uppercase truncate">Episódio ${num}</h4>
+                                <div class="flex flex-wrap gap-2 mt-2">
+                                    ${eps.map(ep => `
+                                        <button onclick="playEpisode('${ep.id}', '${num}', '${ep.provider || 'gogoanime'}')" 
+                                            class="px-2 py-0.5 bg-white/5 hover:bg-[--accent] text-[9px] font-black rounded border border-white/5 hover:border-[--accent] transition-all uppercase">
+                                            ${providerNames[ep.provider] || (ep.provider ? ep.provider.toUpperCase() : 'GOGO')}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Play Button fallback
+                document.getElementById('modalPlayBtn').onclick = () => {
+                    const firstNum = sortedNums[0];
+                    const firstEp = grouped[firstNum][0];
+                    playEpisode(firstEp.id, firstNum, firstEp.provider || 'gogoanime');
+                };
+            } else {
+                epList.innerHTML = '<p class="py-10 text-center opacity-30 italic">Sem episódios para este idioma.</p>';
+            }
+        }
+
+        function closeInfo() {
+            document.getElementById('infoModal').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        async function playEpisode(id, num, provider) {
+            document.getElementById('playingTitle').innerText = currentAnimeData.title;
+            document.getElementById('playingEp').innerText = `Episódio ${num} (${selectedAudio.toUpperCase()})`;
+            document.getElementById('playerOverlay').classList.remove('hidden');
+            document.getElementById('playerOverlay').classList.add('flex');
+            
+            saveProgress({
+                id: currentAnimeData.mal_id || currentAnimeData.id,
+                title: currentAnimeData.title,
+                image: currentAnimeData.image,
+                releaseDate: currentAnimeData.releaseDate || ''
+            });
+
+            try {
+                const r = await fetch(`${API}/anime/watch/${id}?provider=${provider || 'gogoanime'}`);
+                const d = await r.json();
+                const source = d.sources[0]?.url || "";
+                document.getElementById('videoIframe').src = source;
+            } catch(e) { alert("Erro ao carregar o player."); }
+        }
+
+        function closePlayer() {
+            document.getElementById('playerOverlay').classList.add('hidden');
+            document.getElementById('playerOverlay').classList.remove('flex');
+            document.getElementById('videoIframe').src = "";
+        }
+
+        // Search
+        const searchInput = document.getElementById('mainSearch');
+        const clearBtn = document.getElementById('clearSearch');
+        searchInput.addEventListener('input', () => clearBtn.style.opacity = searchInput.value ? '1' : '0');
+        searchInput.addEventListener('keypress', async (e) => {
+            if(e.key === 'Enter') {
+                const q = searchInput.value.trim();
+                if(!q) return;
+                document.getElementById('mainContent').style.display = 'none';
+                document.getElementById('searchOverlay').classList.add('active');
+                document.getElementById('searchResultLabel').innerText = "Busca";
+                document.getElementById('searchResultQuery').innerText = q;
+                document.getElementById('searchGrid').innerHTML = Array(12).fill('<div class="aspect-[16/9] shimmer rounded-lg"></div>').join('');
+                try {
+                    const r = await fetch(`${API}/anime/search/${encodeURIComponent(q)}`);
+                    const d = await r.json();
+                    renderSearch(d.results || []);
+                } catch(e) {}
+            }
+        });
+
+        function clearSearch() { searchInput.value = ''; clearBtn.style.opacity = '0'; searchInput.focus(); }
+        function renderSearch(list) {
+            const grid = document.getElementById('searchGrid');
+            if(!list.length) { grid.innerHTML = '<div class="col-span-full py-40 text-center"><p class="text-2xl opacity-30 font-black">NENHUM RESULTADO</p></div>'; return; }
+            grid.innerHTML = list.map(item => `
+                <div class="anime-card !aspect-[2/3] !flex-none" onmouseenter="prefetchAnime('${item.id}')" onclick="openInfo('${item.id}')">
+                    <img src="${item.image}" alt="${item.title}" loading="lazy">
+                    <div class="card-info">
+                        <h4 class="text-xs font-black truncate">${item.title}</h4>
+                        <span class="text-[10px] text-gray-400">${item.releaseDate}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function closeSearch() { document.getElementById('searchOverlay').classList.remove('active'); document.getElementById('mainContent').style.display = 'block'; clearSearch(); }
+
+        // Persistence
+        function saveProgress(anime) {
+            let history = JSON.parse(localStorage.getItem('anime_history') || '[]');
+            history = history.filter(h => h.id !== anime.id);
+            history.unshift(anime);
+            localStorage.setItem('anime_history', JSON.stringify(history.slice(0, 12)));
+            loadProgress();
+        }
+
+        function loadProgress() {
+            const history = JSON.parse(localStorage.getItem('anime_history') || '[]');
+            if(!history.length) { document.getElementById('sectionProgress').style.display = 'none'; return; }
+            document.getElementById('sectionProgress').style.display = 'block';
+            renderRow(history, 'rowProgress');
+        }
+
+        window.addEventListener('scroll', () => document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40));
+
+        init();
+    </script>
+</body>
+</html>

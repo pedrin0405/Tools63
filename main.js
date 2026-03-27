@@ -21,8 +21,8 @@ function createPythonBackend() {
     // Em desenvolvimento, rodamos via script .py usando o venv local
     const scriptPath = path.join(__dirname, 'backend', 'server.py');
     const pythonExe = isWin 
-      ? path.join(__dirname, 'backend', '.venv', 'Scripts', 'python.exe')
-      : path.join(__dirname, 'backend', '.venv', 'bin', 'python');
+      ? path.join(__dirname, '.venv', 'Scripts', 'python.exe')
+      : path.join(__dirname, '.venv', 'bin', 'python');
     
     pythonProcess = spawn(pythonExe, [scriptPath], {
       cwd: __dirname
