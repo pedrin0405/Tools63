@@ -214,6 +214,9 @@
             <!-- Source Selector -->
             <div class="hidden sm:block">
                 <select id="sourceSelect" class="bg-surface-variant border-none rounded-md px-3 py-1.5 text-xs font-bold text-on-surface-variant focus:ring-1 focus:ring-primary cursor-pointer" onchange="onSourceChange()">
+                    <option value="all">Source: All Providers</option>
+                    <option value="mangaplus">Source: MangaPlus (Official)</option>
+                    <option value="native">Source: Native Direct</option>
                     <option value="mangadex">Source: MangaDex</option>
                     <option value="mangakakalot">Source: Kakalot</option>
                     <option value="mangasee123">Source: MangaSee</option>
@@ -565,11 +568,11 @@
             const selector = document.getElementById('sourceSelect');
             if (selector) {
                 if (type === 'books') {
-                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="google-books">Source: Google Books</option><option value="gutenberg">Source: Gutenberg</option><option value="openlibrary">Source: OpenLibrary</option><option value="internet-archive">Source: Internet Archive</option><option value="wikisource">Source: Wikisource</option>';
+                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="google-books">Source: Google Books</option><option value="gutenberg">Source: Gutenberg</option><option value="internet-archive">Source: Internet Archive</option><option value="wikisource">Source: Wikisource</option>';
                     const saved = localStorage.getItem('tools63_book_source') || 'all';
                     selector.value = saved;
                 } else {
-                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="mangadex">Source: MangaDex</option><option value="mangakakalot">Source: Kakalot</option><option value="mangasee123">Source: MangaSee</option>';
+                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="mangaplus">Source: MangaPlus (Official)</option><option value="native">Source: Native Direct</option><option value="mangadex">Source: MangaDex</option><option value="mangakakalot">Source: Kakalot</option><option value="mangasee123">Source: MangaSee</option>';
                     const saved = readStorage(STORAGE_KEYS.mangaSource, 'all');
                     selector.value = saved;
                 }
@@ -750,7 +753,8 @@
                 year: d.year || null,
                 provider: d.provider || getProviderFromId(mangaId),
                 lang: d.resolvedLang || lang,
-                chapters: d.chapters || []
+                chapters: d.chapters || [],
+                availableLanguages: d.available_languages || []
             };
 
             document.getElementById('detailCover').src = d.cover || '';
@@ -759,6 +763,17 @@
             document.getElementById('detailMeta').textContent = `${d.year || ''} • ${(d.resolvedLang || lang).toUpperCase()}`;
             document.getElementById('detailDesc').textContent = d.description || 'No description available.';
             
+            // Populate langSelect dynamically
+            const langSelect = document.getElementById('langSelect');
+            if (langSelect && d.available_languages && d.available_languages.length > 0) {
+                const currentVal = langSelect.value;
+                langSelect.innerHTML = d.available_languages.map(l => 
+                    `<option value="${l.id}" ${l.id === lang ? 'selected' : ''}>${l.name}</option>`
+                ).join('');
+                // If the the previous value is not in the new list, we don't force it
+                // but we keep the current one active.
+            }
+
             renderTags(d.tags || []);
             setFavoriteButtonState();
             renderChapterList();
@@ -906,6 +921,29 @@
         }
 
         // Translation logic
+        function onReaderLangChange() {
+            const lang = document.getElementById('readerTargetLang').value;
+            console.log(`[MangaHub] Reader language changed to: ${lang}`);
+            
+            // If we're not translating, let's try switching the actual content lang
+            if (!translationEnabled && currentMangaId && (currentMangaId.includes('mangaplus') || currentMangaId.includes('mangadex'))) {
+                const globalLangSelect = document.getElementById('langSelect');
+                if (!globalLangSelect) return;
+                const targetGlobal = lang === 'pt' ? 'pt-br' : (lang === 'es' ? 'es-la' : (lang === 'en' ? 'en' : null));
+                if (targetGlobal && globalLangSelect.value !== targetGlobal) {
+                    globalLangSelect.value = targetGlobal;
+                    const chNo = currentChapterPayload ? currentChapterPayload.chapterNo : null;
+                    console.log(`[MangaHub] Syncing source to ${targetGlobal}...`);
+                    loadMangaInfo(currentMangaId, { forceRefresh: true }).then(() => {
+                        if (chNo && currentMangaInfo && currentMangaInfo.chapters) {
+                            const newCh = currentMangaInfo.chapters.find(c => String(c.chapter) == String(chNo));
+                            if (newCh) openChapter(newCh.id, newCh.chapter, newCh.title, targetGlobal);
+                        }
+                    });
+                }
+            }
+        }
+
         async function translateCurrentChapterPages() {
             if (!currentChapterPayload || translationInProgress) return;
             

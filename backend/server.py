@@ -1,4 +1,4 @@
-import os, threading, concurrent.futures, platform, subprocess, shutil, time, re, signal, sys, hashlib, base64, io, socket
+import os, threading, concurrent.futures, platform, subprocess, shutil, time, re, signal, sys, hashlib, base64, io, socket, json
 from urllib.parse import urlparse
 
 # Forçar UTF-8 no stdout para evitar erro de encoding no Windows (emojis/caracteres especiais)
@@ -20,6 +20,11 @@ try:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     jikan = Jikan()
     anilist = Anilist()
+    try:
+        from mangaplus import MangaPlus
+        from mangaplus.constants import Language, TitleType, Quality
+    except ImportError:
+        print("!!! MangaPlus library not found, but it should be installed in the venv.")
     print(">>> Dependências AnimeHub Carregadas com Sucesso")
 except Exception as e:
     print(f"!!! Falha ao carregar dependências: {str(e)}")
@@ -310,6 +315,437 @@ def opn():
 
 ANIME_API = "https://consumet-api-smoky.vercel.app"
 MANGADEX_API = "https://api.mangadex.org"
+
+class NativeMangaScraper:
+    """Direct scraper for MangaKakalot (extracts directly from HTML)."""
+    BASE_URL = "https://mangakakalot.com"
+    
+    @staticmethod
+    def _clean_text(text):
+        return str(text or '').strip().replace('\t', '').replace('\n', ' ')
+
+    @staticmethod
+    def search(query, limit=20):
+        try:
+            q_url = f"{NativeMangaScraper.BASE_URL}/search/story/{query.replace(' ', '_')}"
+            r = requests.get(q_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            soup = BeautifulSoup(r.text, 'html.parser')
+            
+            results = []
+            for item in soup.select('div.story_item'):
+                title_a = item.select_one('h3.story_name > a')
+                img = item.select_one('img')
+                if not title_a: continue
+                
+                m_url = title_a.get('href', '')
+                manga_id = m_url.split('/')[-1]
+                if not manga_id: continue
+                
+                results.append({
+                    'id': f"native:{manga_id}",
+                    'title': NativeMangaScraper._clean_text(title_a.text),
+                    'cover': img.get('src') if img else '',
+                    'status': 'unknown',
+                    'provider': 'native'
+                })
+                if len(results) >= limit: break
+            return results
+        except Exception as e:
+            print(f"!!! Native Scraper Search Error: {e}")
+            return []
+
+    @staticmethod
+    def trending(limit=24):
+        try:
+            r = requests.get(NativeMangaScraper.BASE_URL, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            soup = BeautifulSoup(r.text, 'html.parser')
+            
+            results = []
+            for item in soup.select('div.itemupdate'):
+                title_a = item.select_one('h3 > a')
+                img = item.select_one('img')
+                if not title_a: continue
+                
+                m_url = title_a.get('href', '')
+                manga_id = m_url.split('/')[-1]
+                results.append({
+                    'id': f"native:{manga_id}",
+                    'title': NativeMangaScraper._clean_text(title_a.text),
+                    'cover': img.get('src') if img else '',
+                    'status': 'ongoing',
+                    'provider': 'native'
+                })
+                if len(results) >= limit: break
+            return results
+        except Exception as e:
+            print(f"!!! Native Scraper Trending Error: {e}")
+            return []
+
+    @staticmethod
+    def get_info(manga_id):
+        try:
+            url = f"{NativeMangaScraper.BASE_URL}/manga/{manga_id}"
+            r = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            soup = BeautifulSoup(r.text, 'html.parser')
+            
+            title_el = soup.select_one('ul.manga-info-text li:nth-of-type(1) h1')
+            title = NativeMangaScraper._clean_text(title_el.text) if title_el else 'Sem titulo'
+            
+            img_el = soup.select_one('div.manga-info-pic img')
+            cover = img_el.get('src') if img_el else ''
+            
+            desc_el = soup.select_one('div#noidungm')
+            desc = NativeMangaScraper._clean_text(desc_el.text) if desc_el else 'Sem descricao disponivel.'
+            
+            chapters = []
+            for row in soup.select('div.chapter-list div.row'):
+                a = row.select_one('a')
+                if not a: continue
+                
+                ch_url = a.get('href', '')
+                ch_id = ch_url.split('/')[-1]
+                ch_num_match = re.search(r'chapter_([\d\.]+)', ch_id)
+                ch_num = ch_num_match.group(1) if ch_num_match else '0'
+                
+                chapters.append({
+                    'id': f"native:{ch_id}",
+                    'chapter': ch_num,
+                    'title': NativeMangaScraper._clean_text(a.text),
+                    'provider': 'native'
+                })
+            
+            chapters.sort(key=lambda x: _safe_float_chapter(x['chapter']), reverse=False)
+            
+            return {
+                'id': f"native:{manga_id}",
+                'title': title,
+                'description': desc,
+                'cover': cover,
+                'chapters': chapters,
+                'provider': 'native'
+            }
+        except Exception as e:
+            print(f"!!! Native Scraper Info Error: {e}")
+            return {}
+
+    @staticmethod
+    def get_pages(chapter_id):
+        try:
+            url = f"{NativeMangaScraper.BASE_URL}/chapter/{chapter_id}"
+            r = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            soup = BeautifulSoup(r.text, 'html.parser')
+            
+            pages = []
+            for img in soup.select('div.container-chapter-reader img'):
+                src = img.get('src') or img.get('data-src')
+                if src: pages.append(src)
+                
+            return {
+                'chapterId': f"native:{chapter_id}",
+                'pages': pages,
+                'provider': 'native'
+            }
+        except Exception as e:
+            print(f"!!! Native Scraper Pages Error: {e}")
+            return {'pages': []}
+
+class MangaPlusScraper:
+    _client = None
+    _lock = threading.Lock()
+    _titles_cache = None
+    _titles_cache_time = 0.0
+    _lang_map = {
+        'PORTUGUESE_BR': 'pt-br',
+        'ENGLISH': 'en',
+        'SPANISH': 'es-la',
+        'FRENCH': 'fr',
+        'INDONESIAN': 'id',
+        'THAI': 'th',
+        'RUSSIAN': 'ru',
+        'VIETNAMESE': 'vi',
+        'GERMAN': 'de',
+        'ITALIAN': 'it'
+    }
+
+    @classmethod
+    def _get_client(cls):
+        with cls._lock:
+            if cls._client is None:
+                try:
+                    import uuid
+                    cls._client = MangaPlus(lang=Language.PORTUGUESE_BR)
+                    cls._client.register(str(uuid.uuid4()))
+                except Exception as e:
+                    print(f"!!! MangaPlus Init Error: {e}")
+            return cls._client
+
+    @staticmethod
+    def search(query, limit=30):
+        try:
+            client = MangaPlusScraper._get_client()
+            if not client: return []
+            if 'mangaplus.shueisha.co.jp/viewer/' in query:
+                ch_id_match = re.search(r'viewer/(\d+)', query)
+                if ch_id_match:
+                    ch_id = int(ch_id_match.group(1))
+                    res_ch = client.getMangaData(ch_id)
+                    mv = res_ch.get('mangaViewer', {})
+                    t_id = mv.get('titleId')
+                    if t_id:
+                        res_info = client.getTitleDetail(int(t_id))
+                        tdv = res_info.get('titleDetailView', {})
+                        title_obj = tdv.get('title', {})
+                        return [{
+                            'id': f"mangaplus:{t_id}",
+                            'title': title_obj.get('name', 'MangaPlus Title'),
+                            'cover': title_obj.get('portraitImageUrl', ''),
+                            'status': 'ongoing',
+                            'provider': 'mangaplus'
+                        }]
+
+            import time
+            now = time.time()
+            if not MangaPlusScraper._titles_cache or (now - MangaPlusScraper._titles_cache_time > 3600):
+                res = client.getSearchTitles()
+                sv = res.get('searchView', {})
+                MangaPlusScraper._titles_cache = sv.get('allTitlesGroup', [])
+                MangaPlusScraper._titles_cache_time = now
+                
+            atg = MangaPlusScraper._titles_cache
+            
+            results_map = {}
+            query_lower = query.lower()
+            
+            for group in atg:
+                titles = group.get('titles', [])
+                st = sorted(titles, key=lambda x: 0 if x.get('language') == 'PORTUGUESE_BR' else (1 if not x.get('language') or x.get('language') == 'ENGLISH' else 2))
+                for t in st:
+                    title_name = t.get('name', 'Sem titulo').strip()
+                    import re
+                    clean_name = re.sub(r'\s*\((ENG|ESP|SPA|FRA|POR|PT-BR|THA|IND|RUS|VIE|ITA|GER)\)\s*$', '', title_name, flags=re.IGNORECASE).strip()
+                    
+                    if query_lower in title_name.lower() or query_lower in clean_name.lower():
+                        if clean_name not in results_map:
+                            results_map[clean_name] = {
+                                'id': f"mangaplus:{t['titleId']}",
+                                'title': clean_name if clean_name else title_name,
+                                'cover': t.get('portraitImageUrl', ''),
+                                'status': 'ongoing',
+                                'provider': 'mangaplus'
+                            }
+                            break
+
+            return list(results_map.values())[:limit]
+        except Exception as e:
+            print(f"!!! MangaPlus Search Error: {e}")
+            return []
+
+    @staticmethod
+    def trending(limit=24):
+        try:
+            client = MangaPlusScraper._get_client()
+            if not client: return []
+            res = client.getAllTitlesV3(TitleType.SERIALIZING)
+            sv = res.get('searchView', {})
+            atg = sv.get('allTitlesGroup', [])
+            
+            results_map = {}
+            for group in atg:
+                titles = group.get('titles', [])
+                if titles:
+                    # Prioritize PT-BR version for trending entry point
+                    st = sorted(titles, key=lambda x: 0 if x.get('language') == 'PORTUGUESE_BR' else (1 if not x.get('language') or x.get('language') == 'ENGLISH' else 2))
+                    t = st[0]
+                    title_name = t.get('name', 'Sem titulo').strip()
+                    import re
+                    clean_name = re.sub(r'\s*\((ENG|ESP|SPA|FRA|POR|PT-BR|THA|IND|RUS|VIE|ITA|GER)\)\s*$', '', title_name, flags=re.IGNORECASE).strip()
+                    
+                    if clean_name not in results_map:
+                        results_map[clean_name] = {
+                            'id': f"mangaplus:{t['titleId']}",
+                            'title': clean_name if clean_name else title_name,
+                            'cover': t.get('portraitImageUrl', ''),
+                            'status': 'ongoing',
+                            'provider': 'mangaplus'
+                        }
+                    if len(results_map) >= limit: break
+            return list(results_map.values())
+        except Exception as e:
+            print(f"!!! MangaPlus Trending Error: {e}")
+            return []
+
+    @staticmethod
+    def get_info(manga_id, lang='pt-br'):
+        try:
+            client = MangaPlusScraper._get_client()
+            print(f">>> MangaPlus: Fetching Info for ID {manga_id} with requested lang={lang}")
+            
+            # Map lang to MangaPlus language ID prefixes if possible
+            # ENG:100xxx, ESP:100xxx/300xxx, PT-BR:700xxx, etc.
+            # But the most reliable is to have the name and cross-search in cache.
+            
+            # Refresh cache if needed to ensure we can cross-resolve
+            MangaPlusScraper.trending(limit=5) # This will fill cache if empty
+            
+            m_id = str(manga_id)
+            target_id = m_id
+            
+            # Cross-resolve lang to ID
+            if MangaPlusScraper._titles_cache is not None:
+                # 1. Find the current title's name
+                series_name = None
+                for group in MangaPlusScraper._titles_cache:
+                    titles = group.get('titles', [])
+                    if titles:
+                        for t in titles:
+                            if str(t.get('titleId', '')) == m_id:
+                                series_name = t.get('name', '').strip()
+                                break
+                    if series_name: break
+                
+                if series_name:
+                    import re
+                    # Normalizing the name
+                    clean_name = re.sub(r'\s*\((ENG|ESP|SPA|FRA|POR|PT-BR|THA|IND|RUS|VIE|ITA|GER)\)\s*$', '', series_name, flags=re.IGNORECASE).strip()
+                    
+                    # 2. Look for an ID in the target language for this clean_name
+                    # Comprehensive prefixes for MangaPlus languages
+                    # PT: 5, 7; ES: 2; EN: 1; THA: 8; IND: 9; FRA: 10; VIE: 11; etc.
+                    lang_map_prefixes = {
+                        'pt-br': ['7', '5'],
+                        'pt': ['7', '5'],
+                        'es': ['2', '3'],
+                        'es-la': ['2', '3'],
+                        'en': ['1'],
+                        'fr': ['10'],
+                        'th': ['8'],
+                        'id': ['9']
+                    }
+                    
+                    target_langs = lang_map_prefixes.get(lang.lower(), [])
+                    if target_langs:
+                        for group in MangaPlusScraper._titles_cache:
+                            titles = group.get('titles', [])
+                            if not titles: continue
+                            for t in titles:
+                                t_name = t.get('name', '').strip()
+                                t_clean = re.sub(r'\s*\((ENG|ESP|SPA|FRA|POR|PT-BR|THA|IND|RUS|VIE|ITA|GER)\)\s*$', '', t_name, flags=re.IGNORECASE).strip()
+                                if t_clean.lower() == clean_name.lower():
+                                    tid = str(t.get('titleId', ''))
+                                    for pref in target_langs:
+                                        if tid.startswith(pref):
+                                            target_id = tid
+                                            print(f"DEBUG: Cross-resolved {series_name} ({m_id}) to {lang} ID={target_id}")
+                                            break
+                                    if target_id != m_id: break
+                            if target_id != m_id: break
+
+            # 3. Find all available languages for this series for dynamic UI
+            available_langs = []
+            if MangaPlusScraper._titles_cache is not None and series_name:
+                found_langs = {} # lang -> id
+                for group in MangaPlusScraper._titles_cache:
+                    titles = group.get('titles', [])
+                    if not titles: continue
+                    for t in titles:
+                        tn = t.get('name', '').strip()
+                        tc = re.sub(r'\s*\((ENG|ESP|SPA|FRA|POR|PT-BR|THA|IND|RUS|VIE|ITA|GER)\)\s*$', '', tn, flags=re.IGNORECASE).strip()
+                        if tc.lower() == clean_name.lower():
+                            tid = str(t.get('titleId', ''))
+                            mlang = t.get('language', 'ENGLISH')
+                            l_tag = MangaPlusScraper._lang_map.get(mlang, 'en')
+                            
+                            if l_tag not in found_langs:
+                                found_langs[l_tag] = tid
+                    
+                    # Target resolution: if requested lang exists for this clean_name, use its ID
+                    # Special check: 'pt-br' requested must match 'pt-br' tag
+                    if lang in found_langs:
+                        target_id = found_langs[lang]
+                        print(f"DEBUG: Cross-resolved to ID {target_id} for requested lang {lang}")
+                
+                # Check ALL titles for available langs more efficiently
+                all_av_langs = {}
+                for group in MangaPlusScraper._titles_cache:
+                    for t in group.get('titles', []):
+                        tn = t.get('name', '').strip()
+                        tc = re.sub(r'\s*\((ENG|ESP|SPA|FRA|POR|PT-BR|THA|IND|RUS|VIE|ITA|GER)\)\s*$', '', tn, flags=re.IGNORECASE).strip()
+                        if tc.lower() == clean_name.lower():
+                            ml = t.get('language', 'ENGLISH')
+                            lt = MangaPlusScraper._lang_map.get(ml, 'en')
+                            all_av_langs[lt] = {'id': lt, 'name': lt.upper()}
+
+                for ltag in all_av_langs:
+                    available_langs.append(all_av_langs[ltag])
+
+            res = client.getTitleDetail(int(target_id))
+            tdv = res.get('titleDetailView')
+            if not tdv:
+                return {}
+            
+            title_obj = tdv.get('title', {})
+            chapters = []
+            
+            # Check for chapterListV2 first (modern structure)
+            ch_list = tdv.get('chapterListV2', [])
+            if not ch_list:
+                # Fallback to classical chapterList
+                ch_list = tdv.get('firstChapterList', []) + tdv.get('lastChapterList', [])
+
+            for ch in ch_list:
+                chapters.append({
+                    'id': f"mangaplus:{ch['chapterId']}",
+                    'title': f"Capitulo {ch.get('chapterNumber', ch.get('name', '???'))}",
+                    'chapter': ch.get('chapterNumber', ch.get('name', '0')),
+                    'mangaId': f"mangaplus:{target_id}"
+                })
+            
+            return {
+                'id': f"mangaplus:{target_id}",
+                'title': title_obj.get('name', 'Sem titulo'),
+                'description': tdv.get('overview', 'Sem descricao disponivel.'),
+                'cover': title_obj.get('portraitImageUrl', ''),
+                'chapters': chapters[::-1] if chapters else [], # Reverse usually for MangaPlus
+                'provider': 'mangaplus',
+                'available_languages': available_langs if available_langs else [{'id': 'en', 'name': 'EN'}]
+            }
+        except Exception as e:
+            print(f"!!! MangaPlus Info Error: {e}")
+    @staticmethod
+    def get_pages(chapter_id):
+        try:
+            client = MangaPlusScraper._get_client()
+            if not client: return {'pages': []}
+            res = client.getMangaData(int(chapter_id))
+            mv = res.get('mangaViewer', {})
+            pages_data = mv.get('pages', [])
+            
+            pages = []
+            for p in pages_data:
+                # Inspect p structure more deeply if it's not working
+                # Try both mangaPage (standard modern) and page (other/legacy)
+                img_data = p.get('mangaPage') or p.get('page') or p
+                url = img_data.get('imageUrl') if isinstance(img_data, dict) else None
+                if url:
+                    pages.append(url)
+            
+            if not pages:
+                # Log full structure to trace why it's missing
+                print(f"!!! MangaPlus: No images found for {chapter_id}.")
+                if pages_data:
+                    print(f"DEBUG: Sample page structure: {json.dumps(pages_data[0], indent=2)}")
+                else:
+                    print(f"DEBUG: pages_data is empty. MV keys: {list(mv.keys())}")
+            
+            return {
+                'chapterId': f"mangaplus:{chapter_id}",
+                'pages': pages,
+                'provider': 'mangaplus'
+            }
+        except Exception as e:
+            print(f"!!! MangaPlus Pages Error: {e}")
+            return {'pages': []}
+
 CONSUMET_MANGA_BASES = list(dict.fromkeys([
     u.strip().rstrip('/')
     for u in os.getenv(
@@ -456,6 +892,13 @@ class MangaDexScraper:
     @staticmethod
     def get_info(manga_id, translated_language='pt-br'):
         try:
+            client = MangaDexScraper._get_client()
+            # Normalize language code for MangaDex
+            ld = (translated_language or 'pt-br').lower()
+            if ld == 'pt-br': ld = 'pt-br'
+            elif ld == 'es-la': ld = 'es-la'
+            elif ld == 'en': ld = 'en'
+            
             info_params = {'includes[]': ['cover_art', 'author', 'artist']}
             r_info = requests.get(f"{MANGADEX_API}/manga/{manga_id}", params=info_params, timeout=12)
             r_info.raise_for_status()
@@ -513,15 +956,43 @@ class MangaDexScraper:
             print(f"!!! MangaDex Info Error: {e}")
             return {}
 
+    @staticmethod
+    def get_chapter_pages(chapter_id):
+        try:
+            r = requests.get(f"{MANGADEX_API}/at-home/server/{chapter_id}", timeout=15)
+            r.raise_for_status()
+            payload = r.json()
+            
+            base_url = payload.get('baseUrl')
+            chapter = payload.get('chapter', {})
+            hash_val = chapter.get('hash')
+            data = chapter.get('data', [])
+            
+            if not base_url or not hash_val or not data:
+                return {'pages': [], 'provider': 'mangadex'}
+                
+            pages = [f"{base_url}/data/{hash_val}/{img}" for img in data]
+            return {
+                'chapterId': chapter_id,
+                'pages': pages,
+                'pagesDataSaver': [f"{base_url}/data-saver/{hash_val}/{img}" for img in chapter.get('dataSaver', [])],
+                'provider': 'mangadex'
+            }
+        except Exception as e:
+            print(f"!!! MangaDex Pages Error: {e}")
+            return {'pages': [], 'provider': 'mangadex'}
+
 
 def _parse_prefixed_provider_id(value, default_provider='mangadex'):
     raw = str(value or '').strip()
     if ':' in raw:
         maybe_provider, real_id = raw.split(':', 1)
         provider = (maybe_provider or '').strip().lower()
-        if provider in {'mangadex', 'mangakakalot', 'mangasee123'} and real_id:
+        if provider in {'mangadex', 'mangakakalot', 'mangasee123', 'mangaplus', 'native', 'all'} and real_id:
             return provider, real_id
-    return (default_provider or 'mangadex').lower(), raw
+    res = (default_provider or 'mangadex').lower(), raw
+    print(f"DEBUG: Provider inferred from '{value}' as {res}")
+    return res
 
 
 def _prefix_provider_id(provider, item_id):
@@ -3455,11 +3926,19 @@ def anime_type(type_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/manga/search/<query>')
-def manga_search(query):
+@app.route('/manga/search/<path:query>')
+@app.route('/manga/search')
+def manga_search(query=None):
+    if query is None:
+        query = request.args.get('q', '')
+    
     limit = max(1, min(int(request.args.get('limit', 20)), 60))
     provider = _resolve_manga_provider_param(default='all')
+    
+    # Force mangaplus if URL is provided
+    if 'mangaplus.shueisha.co.jp' in query:
+        provider = 'mangaplus'
+        
     requested_provider = provider
 
     results = []
@@ -3467,6 +3946,10 @@ def manga_search(query):
     resolved_provider = provider
     if provider == 'mangadex':
         results = MangaDexScraper.search(query, limit=limit)
+    elif provider == 'native':
+        results = NativeMangaScraper.search(query, limit=limit)
+    elif provider == 'mangaplus':
+        results = MangaPlusScraper.search(query, limit=limit)
     elif provider in ConsumetMangaScraper.PROVIDERS:
         results = ConsumetMangaScraper.search(provider, query, limit=limit)
         if not results:
@@ -3474,6 +3957,8 @@ def manga_search(query):
     else:
         merged = []
         merged.extend(MangaDexScraper.search(query, limit=limit))
+        merged.extend(NativeMangaScraper.search(query, limit=max(10, limit)))
+        merged.extend(MangaPlusScraper.search(query, limit=max(10, limit)))
         for pv in ConsumetMangaScraper.PROVIDERS.keys():
             merged.extend(ConsumetMangaScraper.search(pv, query, limit=max(6, limit // 2)))
 
@@ -3508,6 +3993,10 @@ def manga_trending():
 
     if provider == 'mangadex':
         results = MangaDexScraper.trending(limit=limit)
+    elif provider == 'native':
+        results = NativeMangaScraper.trending(limit=limit)
+    elif provider == 'mangaplus':
+        results = MangaPlusScraper.trending(limit=limit)
     elif provider in ConsumetMangaScraper.PROVIDERS:
         results = ConsumetMangaScraper.trending(provider, limit=limit)
         if not results:
@@ -3515,6 +4004,8 @@ def manga_trending():
     else:
         merged = []
         merged.extend(MangaDexScraper.trending(limit=limit))
+        merged.extend(NativeMangaScraper.trending(limit=max(10, limit)))
+        merged.extend(MangaPlusScraper.trending(limit=max(10, limit)))
         for pv in ConsumetMangaScraper.PROVIDERS.keys():
             merged.extend(ConsumetMangaScraper.trending(pv, limit=max(6, limit // 2)))
 
@@ -3548,6 +4039,10 @@ def manga_info(manga_id):
 
     if provider == 'mangadex':
         data = MangaDexScraper.get_info(raw_manga_id, translated_language=lang)
+    elif provider == 'native':
+        data = NativeMangaScraper.get_info(raw_manga_id)
+    elif provider == 'mangaplus':
+        data = MangaPlusScraper.get_info(raw_manga_id, lang=lang)
     else:
         data = ConsumetMangaScraper.get_info(provider, raw_manga_id, translated_language=lang)
         if not data:
@@ -3589,13 +4084,17 @@ def manga_chapter_pages(chapter_id):
     provider, raw_chapter_id = _parse_prefixed_provider_id(chapter_id, default_provider=default_provider)
 
     if provider == 'mangadex':
-        data = _mangadex_get_chapter_pages(raw_chapter_id)
+        data = MangaDexScraper.get_chapter_pages(raw_chapter_id)
+    elif provider == 'native':
+        data = NativeMangaScraper.get_pages(raw_chapter_id)
+    elif provider == 'mangaplus':
+        data = MangaPlusScraper.get_pages(raw_chapter_id)
     else:
         data = ConsumetMangaScraper.get_chapter_pages(provider, raw_chapter_id)
         if not data or (not data.get('pages') and not data.get('pagesDataSaver')):
             md_chapter = raw_chapter_id.split(':', 1)[-1] if ':' in raw_chapter_id else raw_chapter_id
             if _looks_like_mangadex_id(md_chapter):
-                data = _mangadex_get_chapter_pages(md_chapter)
+                data = MangaDexScraper.get_chapter_pages(md_chapter)
                 provider = 'mangadex'
 
     if data and 'provider' not in data:
@@ -3612,7 +4111,9 @@ def manga_chapter_pages(chapter_id):
 @app.route('/manga/providers')
 def manga_providers():
     providers = [
-        {'id': 'mangadex', 'name': 'MangaDex', 'supportsReading': True},
+        {'id': 'mangaplus', 'name': 'MangaPlus (Official)', 'supportsReading': True},
+        {'id': 'native', 'name': 'Native Scraper (Direct)', 'supportsReading': True},
+        {'id': 'mangadex', 'name': 'MangaDex (Official)', 'supportsReading': True},
         {'id': 'mangakakalot', 'name': 'MangaKakalot (Consumet)', 'supportsReading': True},
         {'id': 'mangasee123', 'name': 'MangaSee (Consumet)', 'supportsReading': True}
     ]
