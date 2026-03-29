@@ -219,7 +219,6 @@
                     <option value="mangasee123">Source: MangaSee</option>
                     <option value="google-books">Source: Google Books</option>
                     <option value="gutenberg">Source: Gutenberg</option>
-                    <option value="openlibrary">Source: OpenLibrary</option>
                     <option value="internet-archive">Source: Internet Archive</option>
                     <option value="wikisource">Source: Wikisource</option>
                 </select>
@@ -1190,7 +1189,7 @@
             document.getElementById('readerTitle').textContent = book.title;
             document.getElementById('readerSub').textContent = (book.authors || []).join(', ');
             
-            const isFullText = ['gutenberg', 'internet-archive', 'wikisource'].includes(book.provider || '');
+            const isFullText = ['gutenberg', 'internet-archive', 'wikisource', 'openlibrary'].includes(book.provider || '');
             
             if (isFullText) {
                 bookContent.classList.remove('hidden');
@@ -1210,8 +1209,7 @@
                     </div>
                 `;
                 try {
-                    const source = document.getElementById('sourceSelect').value || 'google-books';
-                    const r = await fetch(`${API}/books/content/${book.id}?source=${source}`);
+                    const r = await fetch(`${API}/books/content/${book.id}?source=${book.provider || 'google-books'}`);
                     const text = await r.text();
                     bookContent.innerHTML = text;
                     
@@ -1280,7 +1278,11 @@
             } else {
                 bookContent.classList.add('hidden');
                 iframe.classList.remove('hidden');
-                iframe.src = book.readLink || book.webReader || '';
+                if (book.provider === 'google-books') {
+                    iframe.src = book.webReader || book.readLink || '';
+                } else {
+                    iframe.src = `${API}/books/content/${book.id}?source=${book.provider || 'gutenberg'}`;
+                }
             }
         }
 

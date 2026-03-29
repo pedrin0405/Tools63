@@ -2672,13 +2672,16 @@ class OpenLibraryScraper:
                 key = item.get('key', '')
                 book_id = key.split('/')[-1]
                 cover_id = item.get('cover_i')
+                ia_collection = item.get('ia', [])
+                ia_id = ia_collection[0] if ia_collection else None
                 results.append({
                     'id': book_id,
                     'title': item.get('title', 'Unknown'),
                     'authors': item.get('author_name', []),
                     'cover': f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg" if cover_id else '',
                     'status': str(item.get('first_publish_year', 'Unknown')),
-                    'provider': 'openlibrary'
+                    'provider': 'openlibrary',
+                    'ia_id': ia_id
                 })
             return results
         except Exception as e:
@@ -2708,6 +2711,24 @@ class OpenLibraryScraper:
             cover_ids = data.get('covers', [])
             cover = f"https://covers.openlibrary.org/b/id/{cover_ids[0]}-L.jpg" if cover_ids else ''
 
+            # Try to find a readable edition more aggressively
+            r_editions = requests.get(f"https://openlibrary.org/works/{book_id}/editions.json?limit=100", timeout=10)
+            ia_id = None
+            if r_editions.status_code == 200:
+                editions = r_editions.json().get('entries', [])
+                # Prioritize editions that have an IA ID
+                for ed in editions:
+                    ia_ids = ed.get('ia', [])
+                    if ia_ids and isinstance(ia_ids, list) and len(ia_ids) > 0:
+                        ia_id = ia_ids[0]
+                        break
+                
+            # If not found in editions, check if it's in the work itself (sometimes it is)
+            if not ia_id:
+                ia_collection = data.get('ia', [])
+                if ia_collection:
+                    ia_id = ia_collection[0]
+
             return {
                 'id': book_id,
                 'title': data.get('title'),
@@ -2715,11 +2736,43 @@ class OpenLibraryScraper:
                 'authors': authors,
                 'cover': cover,
                 'provider': 'openlibrary',
-                'readLink': f"https://openlibrary.org/works/{book_id}"
+                'readLink': f"https://archive.org/embed/{ia_id}" if ia_id else f"https://openlibrary.org/works/{book_id}",
+                'ia_id': ia_id
             }
         except Exception as e:
             print(f"!!! OpenLibrary Info Error: {e}")
             return {}
+
+    @staticmethod
+    def get_metadata_enrichment(title, author=None):
+        """Used to support other providers with better metadata."""
+        try:
+            q = f"title:{title}"
+            if author: q += f" {author}"
+            url = f"https://openlibrary.org/search.json?q={requests.utils.quote(q)}&limit=1"
+            r = requests.get(url, timeout=4) # Short timeout
+            data = r.json()
+            if data.get('docs'):
+                item = data['docs'][0]
+                olid = item.get('key', '').split('/')[-1]
+                
+                # Get the work info for the full description
+                wr = requests.get(f"https://openlibrary.org/works/{olid}.json", timeout=4)
+                w_data = wr.json()
+                
+                desc = w_data.get('description', '')
+                if isinstance(desc, dict): desc = desc.get('value', '')
+                
+                if not desc:
+                    desc = item.get('first_sentence') or ''
+                
+                cover_id = item.get('cover_i')
+                return {
+                    'description': desc,
+                    'cover': f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg" if cover_id else None
+                }
+        except: pass
+        return None
 
 
 class InternetArchiveScraper:
@@ -3652,7 +3705,6 @@ def api_books_search(query):
             GutenbergScraper,
             InternetArchiveScraper,
             WikisourceScraper,
-            OpenLibraryScraper,
             BookScraper # Google Books
         ]
         all_results = []
@@ -3686,20 +3738,48 @@ def api_books_search(query):
 @app.route('/books/info/<book_id>')
 def api_books_info(book_id):
     source = request.args.get('source', 'google-books')
+    res = {}
     if source == 'gutenberg':
-        return jsonify(GutenbergScraper.get_info(book_id))
-    if source == 'openlibrary':
-        return jsonify(OpenLibraryScraper.get_info(book_id))
-    if source == 'internet-archive':
-        return jsonify(InternetArchiveScraper.get_info(book_id))
-    if source == 'wikisource':
-        return jsonify(WikisourceScraper.get_info(book_id))
-    return jsonify(BookScraper.get_info(book_id))
+        res = GutenbergScraper.get_info(book_id)
+    elif source == 'openlibrary':
+        res = OpenLibraryScraper.get_info(book_id)
+    elif source == 'internet-archive':
+        res = InternetArchiveScraper.get_info(book_id)
+    elif source == 'wikisource':
+        res = WikisourceScraper.get_info(book_id)
+    else:
+        res = BookScraper.get_info(book_id)
+
+    # Metadata Support Enrichment
+    if source in ('gutenberg', 'wikisource', 'internet-archive'):
+        if not res.get('description') or len(res.get('description', '')) < 100 or not res.get('cover'):
+            support = OpenLibraryScraper.get_metadata_enrichment(res.get('title'), res.get('authors', [None])[0])
+            if support:
+                if not res.get('description') or len(res.get('description', '')) < 100:
+                    res['description'] = support.get('description') or res.get('description')
+                if not res.get('cover') and support.get('cover'):
+                    res['cover'] = support.get('cover')
+    return jsonify(res)
 
 @app.route('/books/content/<book_id>')
 def api_books_content(book_id):
     source = request.args.get('source', 'gutenberg')
     
+    if source == 'openlibrary':
+        info = OpenLibraryScraper.get_info(book_id)
+        ia_id = info.get('ia_id')
+        if ia_id:
+            # Try plain text first
+            read_url = f"https://archive.org/stream/{ia_id}/{ia_id}_djvu.txt"
+            try:
+                r = requests.get(read_url, timeout=10)
+                if r.status_code == 200 and len(r.text) > 1000:
+                    return _beautify_text(r.text)
+            except: pass
+            # Fallback to embed
+            return f"<html><body style='margin:0;background:black;overflow:hidden'><iframe src='https://archive.org/embed/{ia_id}&ui=full' width='100%' height='100%' frameborder='0' allowfullscreen></iframe></body></html>"
+        return "No direct readable content found for this work on OpenLibrary."
+
     if source == 'wikisource':
         info = WikisourceScraper.get_info(book_id)
         return info.get('raw_content', 'No content available.')
@@ -3732,11 +3812,10 @@ def api_books_trending():
     if source == 'all':
         # Quick trending mix
         results = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            f1 = executor.submit(GutenbergScraper.search, 'popular', 6)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            f1 = executor.submit(GutenbergScraper.search, 'popular', 10)
             f2 = executor.submit(BookScraper.search, 'subject:fiction', 10)
-            f3 = executor.submit(OpenLibraryScraper.search, 'popular', 6)
-            for f in [f1, f2, f3]:
+            for f in [f1, f2]:
                 try: results.extend(f.result() or [])
                 except: pass
         return jsonify({'results': results})
