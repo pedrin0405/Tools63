@@ -216,14 +216,7 @@
                 <select id="sourceSelect" class="bg-surface-variant border-none rounded-md px-3 py-1.5 text-xs font-bold text-on-surface-variant focus:ring-1 focus:ring-primary cursor-pointer" onchange="onSourceChange()">
                     <option value="all">Source: All Providers</option>
                     <option value="mangaplus">Source: MangaPlus (Official)</option>
-                    <option value="native">Source: Native Direct</option>
                     <option value="mangadex">Source: MangaDex</option>
-                    <option value="mangakakalot">Source: Kakalot</option>
-                    <option value="mangasee123">Source: MangaSee</option>
-                    <option value="google-books">Source: Google Books</option>
-                    <option value="gutenberg">Source: Gutenberg</option>
-                    <option value="internet-archive">Source: Internet Archive</option>
-                    <option value="wikisource">Source: Wikisource</option>
                 </select>
             </div>
 
@@ -572,9 +565,9 @@
                     const saved = localStorage.getItem('tools63_book_source') || 'all';
                     selector.value = saved;
                 } else {
-                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="mangaplus">Source: MangaPlus (Official)</option><option value="native">Source: Native Direct</option><option value="mangadex">Source: MangaDex</option><option value="mangakakalot">Source: Kakalot</option><option value="mangasee123">Source: MangaSee</option>';
+                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="mangaplus">Source: MangaPlus (Official)</option><option value="mangadex">Source: MangaDex</option>';
                     const saved = readStorage(STORAGE_KEYS.mangaSource, 'all');
-                    selector.value = saved;
+                    selector.value = ['mangaplus', 'mangadex', 'all'].includes(saved) ? saved : 'all';
                 }
             }
             loadTrending();

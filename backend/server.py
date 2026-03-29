@@ -863,12 +863,18 @@ class MangaDexScraper:
                 'order[relevance]': 'desc',
                 'hasAvailableChapters': 'true'
             }
-            r = requests.get(f"{MANGADEX_API}/manga", params=params, timeout=12)
+            url = f"{MANGADEX_API}/manga"
+            print(f">>> [MangaDex] Requesting search: {url} with query '{query}'")
+            r = requests.get(url, params=params, timeout=12)
+            print(f">>> [MangaDex] Response status: {r.status_code}")
             r.raise_for_status()
             data = r.json().get('data', [])
+            print(f">>> [MangaDex] JSON data has {len(data)} items")
             return [MangaDexScraper._manga_from_item(item) for item in data]
         except Exception as e:
             print(f"!!! MangaDex Search Error: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     @staticmethod
@@ -3952,24 +3958,54 @@ def manga_search(query=None):
         results = ConsumetMangaScraper.search(provider, query, limit=limit)
         if not results:
             provider_unavailable = True
-    else:
+    elif provider == 'all':
+        # Parallel optimized search for 'all'
+        def run_search(name, scraper_fn, q, lim):
+            try:
+                print(f">>> [Parallel] Starting {name} search for: {q}", flush=True)
+                res = scraper_fn(q, limit=lim)
+                print(f">>> [Parallel] {name} results: {len(res)}", flush=True)
+                return res
+            except Exception as e:
+                print(f"!!! [Parallel] {name} error: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                return []
+
+        futures = [
+            executor.submit(run_search, "MangaDex", MangaDexScraper.search, query, limit),
+            executor.submit(run_search, "MangaPlus", MangaPlusScraper.search, query, limit)
+        ]
+        
+        all_results_lists = []
+        for f in concurrent.futures.as_completed(futures):
+             all_results_lists.append(f.result())
+            
         merged = []
-        merged.extend(MangaDexScraper.search(query, limit=limit))
-        merged.extend(NativeMangaScraper.search(query, limit=max(10, limit)))
-        merged.extend(MangaPlusScraper.search(query, limit=max(10, limit)))
-        for pv in ConsumetMangaScraper.PROVIDERS.keys():
-            merged.extend(ConsumetMangaScraper.search(pv, query, limit=max(6, limit // 2)))
+        max_len = max(len(lst) for lst in all_results_lists) if all_results_lists else 0
+        print(f">>> [Parallel] Merging {len(all_results_lists)} sources. Max individual len: {max_len}", flush=True)
+        
+        for i in range(max_len):
+            for lst in all_results_lists:
+                if i < len(lst):
+                    merged.append(lst[i])
 
         seen = set()
         deduped = []
         for item in merged:
-            key = normalize_title(item.get('title') or '')
-            if not key or key in seen:
+            # deduplicate by (normalized title + provider) to allow same manga from both sources
+            title_key = normalize_title(item.get('title') or '')
+            p_key = item.get('provider', 'unknown')
+            unique_key = f"{title_key}_{p_key}"
+            
+            if not title_key or unique_key in seen:
                 continue
-            seen.add(key)
+            seen.add(unique_key)
             deduped.append(item)
             if len(deduped) >= limit:
                 break
+        
+        print(f">>> [Parallel] Final merged result count: {len(deduped)}", flush=True)
         results = deduped
         resolved_provider = 'all'
 
@@ -4000,12 +4036,28 @@ def manga_trending():
         if not results:
             provider_unavailable = True
     else:
+        # Parallel optimized trending for 'all'
+        def run_trending(scraper_fn, lim):
+            try: return scraper_fn(limit=lim)
+            except: return []
+
+        futures = [
+            executor.submit(run_trending, MangaDexScraper.trending, limit),
+            executor.submit(run_trending, MangaPlusScraper.trending, limit)
+        ]
+        
+        # Collect results from all futures
+        all_results_lists = []
+        for f in concurrent.futures.as_completed(futures):
+            all_results_lists.append(f.result())
+            
+        # Interleave results
         merged = []
-        merged.extend(MangaDexScraper.trending(limit=limit))
-        merged.extend(NativeMangaScraper.trending(limit=max(10, limit)))
-        merged.extend(MangaPlusScraper.trending(limit=max(10, limit)))
-        for pv in ConsumetMangaScraper.PROVIDERS.keys():
-            merged.extend(ConsumetMangaScraper.trending(pv, limit=max(6, limit // 2)))
+        max_len = max(len(lst) for lst in all_results_lists) if all_results_lists else 0
+        for i in range(max_len):
+            for lst in all_results_lists:
+                if i < len(lst):
+                    merged.append(lst[i])
 
         seen = set()
         deduped = []
