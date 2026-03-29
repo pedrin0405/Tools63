@@ -892,12 +892,10 @@ class MangaDexScraper:
     @staticmethod
     def get_info(manga_id, translated_language='pt-br'):
         try:
-            client = MangaDexScraper._get_client()
             # Normalize language code for MangaDex
             ld = (translated_language or 'pt-br').lower()
-            if ld == 'pt-br': ld = 'pt-br'
-            elif ld == 'es-la': ld = 'es-la'
-            elif ld == 'en': ld = 'en'
+            if ld == 'pt': ld = 'pt-br'
+            elif ld == 'es': ld = 'es-la'
             
             info_params = {'includes[]': ['cover_art', 'author', 'artist']}
             r_info = requests.get(f"{MANGADEX_API}/manga/{manga_id}", params=info_params, timeout=12)
