@@ -87,6 +87,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 850,
+    fullscreen: true,
     titleBarStyle: 'hiddenInset', // Apple style traffic lights
     backgroundColor: '#0c0a1a',
     webPreferences: {
