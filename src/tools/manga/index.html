@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Manga Hub - The Cinematic Archive</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+          tailwind.config = {
+            darkMode: "class",
+            theme: {
+              extend: {
+                colors: {
+                  "on-secondary-fixed": "#671600",
+                  "on-background": "#ffffff",
+                  "surface": "#0e0e0e",
+                  "on-primary": "#532a00",
+                  "surface-container-low": "#131313",
+                  "background": "#0e0e0e",
+                  "surface-container": "#191a1a",
+                  "primary": "#ff9f4a",
+                  "surface-tint": "#ff9f4a",
+                  "secondary-dim": "#ff734c",
+                  "inverse-primary": "#914d00",
+                  "on-error-container": "#ffd2c8",
+                  "surface-container-high": "#1f2020",
+                  "on-error": "#450900",
+                  "error-dim": "#d53d18",
+                  "primary-container": "#fd8b00",
+                  "secondary-container": "#b12d00",
+                  "on-primary-fixed-variant": "#512800",
+                  "surface-container-highest": "#262626",
+                  "secondary": "#ff734c",
+                  "tertiary-fixed": "#ffd33a",
+                  "tertiary": "#ffe393",
+                  "on-primary-container": "#442100",
+                  "surface-variant": "#262626",
+                  "tertiary-fixed-dim": "#efc52b",
+                  "outline-variant": "#484848",
+                  "error-container": "#b92902",
+                  "on-secondary-fixed-variant": "#992600",
+                  "tertiary-container": "#ffd33a",
+                  "on-primary-fixed": "#180800",
+                  "primary-dim": "#ed8200",
+                  "on-tertiary": "#665100",
+                  "secondary-fixed-dim": "#ffb19b",
+                  "surface-dim": "#0e0e0e",
+                  "on-secondary": "#430b00",
+                  "on-secondary-container": "#fff6f4",
+                  "inverse-surface": "#fcf9f8",
+                  "on-tertiary-fixed": "#453600",
+                  "inverse-on-surface": "#565555",
+                  "surface-bright": "#2c2c2c",
+                  "on-surface": "#ffffff",
+                  "secondary-fixed": "#ffc4b4",
+                  "surface-container-lowest": "#000000",
+                  "on-surface-variant": "#adaaaa",
+                  "primary-fixed-dim": "#ea8000",
+                  "on-tertiary-container": "#5c4900",
+                  "tertiary-dim": "#efc52b",
+                  "outline": "#767575",
+                  "on-tertiary-fixed-variant": "#675200",
+                  "primary-fixed": "#fd8b00",
+                  "error": "#ff7351"
+                },
+                fontFamily: {
+                  "headline": ["Plus Jakarta Sans"],
+                  "body": ["Inter"],
+                  "label": ["Inter"]
+                },
+                borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+              },
+            },
+          }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0e0e0e; color: #ffffff; }
+        .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-apple { background: rgba(14, 14, 14, 0.4); backdrop-filter: blur(40px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.12); }
+        .tab-btn.active { color: #ff9f4a; border-bottom: 2px solid #ff9f4a; }
+        
+        /* Modal and Overlays */
+        .details-modal {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
+            display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .details-modal.open { display: flex; opacity: 1; }
+        
+        .reader {
+            position: fixed; inset: 0; z-index: 3000;
+            background: #0e0e0e; display: none; flex-direction: column;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .reader.open { display: flex; }
+        
+        .hero-gradient {
+            background: linear-gradient(to top, #0e0e0e 0%, rgba(14, 14, 14, 0.4) 60%, transparent 100%),
+                        linear-gradient(to right, #0e0e0e 0%, rgba(14, 14, 14, 0.2) 30%, transparent 100%);
+        }
+
+        .manga-card-hover:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        /* Custom scrollbar for description */
+        .desc-scroll::-webkit-scrollbar { width: 4px; }
+        .desc-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+        .desc-scroll::-webkit-scrollbar-thumb { background: rgba(255, 159, 74, 0.3); border-radius: 10px; }
+        .desc-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 159, 74, 0.5); }
+
+        /* Chapter Buttons */
+        .chapter-btn.active {
+            background: rgba(255, 159, 74, 0.15);
+            border-color: #ff9f4a;
+            color: #ff9f4a;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255, 159, 74, 0.1);
+            border-top: 3px solid #ff9f4a;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Book Content Formatting */
+        #readerBookContent * { color: inherit !important; text-shadow: none !important; box-shadow: none !important; border: none !important; }
+        
+        /* Skeleton Loading */
+        .skeleton-book { margin-bottom: 2rem; animation: pulse 1.8s infinite ease-in-out; }
+        .skeleton-line { height: 1.2rem; background: rgba(255, 159, 74, 0.08); border-radius: 8px; margin-bottom: 1rem; }
+        .reader.light-mode .skeleton-line { background: rgba(0, 0, 0, 0.05); }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scaleY(0.98); } 50% { opacity: 0.8; transform: scaleY(1); } }
+
+        #readerBookContent p { margin-bottom: 2rem; line-height: 1.8; }
+        #readerBookContent h1, #readerBookContent h2 { margin: 3rem 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        .book-paged {
+            display: block !important;
+            column-width: 450px;
+            column-gap: 80px;
+            column-rule: 1px solid rgba(255, 255, 255, 0.05);
+            height: calc(100vh - 220px);
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 3rem 4rem 4rem 4rem !important;
+            margin-bottom: 2rem;
+            box-sizing: border-box;
+            text-align: justify;
+            scroll-snap-type: x mandatory;
+            scroll-padding-inline: 4rem;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Each element inside follows the snap points */
+        .book-paged > p, .book-paged > h2 { scroll-snap-align: start; }
+        
+        .reader.reader-book { overflow: hidden !important; }
+
+        .reader.light-mode .book-paged {
+            column-rule: 1px solid rgba(0, 0, 0, 0.05);
+            background-color: #fcfcfc;
+        }
+
+        /* Full Reader Light Theme Override */
+        .reader.light-mode { color: #121212 !important; }
+        .reader.light-mode .glass { background: rgba(0, 0, 0, 0.03) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; color: #121212 !important; }
+        .reader.light-mode .text-on-surface-variant { color: #565555 !important; }
+        .reader.light-mode .material-symbols-outlined { color: #121212 !important; }
+        .reader.light-mode #readerTitle { color: #121212 !important; }
+        .reader.light-mode #readerSub { color: #565555 !important; }
+        .reader.light-mode #readerPageIndicator { color: #121212 !important; }
+        .reader.light-mode #bookFontSizeLabel { color: #121212 !important; }
+        .reader.light-mode input, .reader.light-mode select { color: #121212 !important; }
+        .reader.light-mode .bg-surface-variant { background-color: #e5e5e7 !important; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary/30">
+
+    <!-- Top Navigation Bar -->
+    <nav class="fixed top-0 w-full flex justify-between items-center px-6 py-4 z-50 bg-[#0e0e0e]/80 backdrop-blur-xl">
+        <div class="flex items-center gap-12">
+            <span class="text-2xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent font-headline tracking-tight cursor-pointer" onclick="switchTab('home')">Media<span class="italic text-white">Hub</span></span>
+            <div class="hidden md:flex items-center gap-6 font-headline font-bold tracking-tight">
+                <div class="flex items-center bg-surface-variant/50 rounded-full px-2 py-1 gap-1 border border-white/5">
+                    <button id="type-manga" onclick="setContentType('manga')" class="px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary">Manga</button>
+                    <button id="type-books" onclick="setContentType('books')" class="px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white">Books</button>
+                </div>
+                <div class="w-[1px] h-4 bg-white/10"></div>
+            <div class="hidden md:flex items-center gap-8 font-headline font-bold tracking-tight">
+                <a class="tab-btn active cursor-pointer" data-tab="home" onclick="switchTab('home')">Browse</a>
+                <a class="tab-btn text-gray-400 hover:text-white transition-colors cursor-pointer" data-tab="favorites" onclick="switchTab('favorites')">Library</a>
+                <a class="tab-btn text-gray-400 hover:text-white transition-colors cursor-pointer" data-tab="history" onclick="switchTab('history')">History</a>
+            </div>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="hidden lg:flex items-center bg-surface-variant rounded-md px-4 py-2 w-64 border border-outline-variant/10 focus-within:border-primary/50 transition-all">
+                <span class="material-symbols-outlined text-on-surface-variant text-xl mr-2">search</span>
+                <input id="searchInput" class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-on-surface-variant" placeholder="Search titles..." type="text" onkeydown="if(event.key==='Enter') searchManga()"/>
+            </div>
+            
+            <!-- Source Selector -->
+            <div class="hidden sm:block">
+                <select id="sourceSelect" class="bg-surface-variant border-none rounded-md px-3 py-1.5 text-xs font-bold text-on-surface-variant focus:ring-1 focus:ring-primary cursor-pointer" onchange="onSourceChange()">
+                    <option value="mangadex">Source: MangaDex</option>
+                    <option value="mangakakalot">Source: Kakalot</option>
+                    <option value="mangasee123">Source: MangaSee</option>
+                    <option value="google-books">Source: Google Books</option>
+                    <option value="gutenberg">Source: Gutenberg</option>
+                    <option value="openlibrary">Source: OpenLibrary</option>
+                    <option value="internet-archive">Source: Internet Archive</option>
+                    <option value="wikisource">Source: Wikisource</option>
+                </select>
+            </div>
+
+            <button class="hover:bg-white/5 transition-all duration-300 p-2 rounded-full relative">
+                <span class="material-symbols-outlined text-on-surface">notifications</span>
+                <span class="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full"></span>
+            </button>
+            <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-outline-variant/20 hover:scale-95 active:scale-90 transition-transform cursor-pointer">
+                <img alt="User Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1Ns4bNNUC8zLN7YpBnp0v34gU8XvSu6d4wkkRhvfqYivjx87tQ7A_xn9ZLaNPhdPz8YgekINFmItR8oRjuo7dlHsT6FNdjTzpLqdqn6jPUBox3BqAswHFGJuPaOedJdiARHZ8ePGhuS-GeyX7mvEFLb-U38bGsSbI6VpRiU-wSE1oILePR7cVpMiT0RkTgKGId9K5EDwRDsHR9ULrvict7vRFnEAbk9TpCYqt3uksvCpMKTt4bbSUJPNX1DmILgmGINgtEjwrcFnx"/>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-0 pb-24 md:pb-12">
+        
+        <!-- Search Section -->
+        <section id="tab-search" class="tab-section pt-24 min-h-screen" style="display:none">
+            <div class="px-6 md:px-12">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 id="searchListTitle" class="text-4xl font-black font-headline tracking-tighter">Search Results</h2>
+                </div>
+                <div id="searchMangaRow" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                    <!-- Search results here -->
+                </div>
+                <div id="searchListEmpty" class="hidden py-20 text-center">
+                    <p class="text-on-surface-variant text-lg">No results found for your search.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Library Section (Favorites) -->
+        <section id="tab-favorites" class="tab-section pt-24 min-h-screen" style="display:none">
+            <div class="px-6 md:px-12">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-4xl font-black font-headline tracking-tighter">My Library</h2>
+                </div>
+                <div id="favoritesRow" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                    <!-- Favorites here -->
+                </div>
+                <div id="favoritesEmpty" class="hidden py-20 text-center border-2 border-dashed border-outline-variant/20 rounded-3xl">
+                    <span class="material-symbols-outlined text-6xl text-on-surface-variant mb-4">book_explore</span>
+                    <p class="text-on-surface-variant text-lg font-headline font-bold">Your library is currently empty.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- History Section -->
+        <section id="tab-history" class="tab-section pt-24 min-h-screen" style="display:none">
+            <div class="px-6 md:px-12">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-4xl font-black font-headline tracking-tighter">Reading History</h2>
+                </div>
+                <div id="historyGridTab" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Detailed history items here -->
+                </div>
+                <div id="historyEmptyDetail" class="hidden py-20 text-center">
+                    <p class="text-on-surface-variant text-lg">You haven't read anything yet.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Home Hub (Dashboard) -->
+        <div id="tab-home" class="tab-section">
+            <!-- Hero Section -->
+            <section id="heroSection" class="relative h-[80vh] md:h-[870px] w-full overflow-hidden">
+                <div class="absolute inset-0 hero-gradient z-10"></div>
+                <img id="heroCover" class="absolute inset-0 w-full h-full object-cover opacity-60 md:opacity-100" src="https://images.unsplash.com/photo-1578632738988-6888af5077?q=80&w=2070&auto=format&fit=crop" />
+                <div class="relative z-20 h-full flex flex-col justify-end px-6 md:px-12 pb-24 md:pb-32 max-w-4xl">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-primary/20 text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest font-label">Top Highlight</span>
+                        <span id="heroRating" class="text-on-surface-variant text-sm flex items-center gap-1 font-label">
+                            <span class="material-symbols-outlined text-sm font-fill-1 text-primary">star</span> Trending
+                        </span>
+                    </div>
+                    <h1 id="heroTitle" class="text-5xl md:text-8xl font-black font-headline tracking-tighter mb-6 leading-[0.9]">Manga Hub</h1>
+                    <p id="heroDesc" class="text-on-surface-variant text-lg md:text-xl max-w-2xl mb-8 line-clamp-3 font-body leading-relaxed">Discover your next favorite story. Fast, clean, and elegant manga reading experience.</p>
+                    <div class="flex items-center gap-4">
+                        <button id="heroReadBtn" class="bg-gradient-to-r from-primary to-secondary text-on-primary font-black px-8 py-4 rounded-full font-headline text-lg flex items-center gap-2 hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">
+                            <span class="material-symbols-outlined font-fill-1">play_arrow</span> Read Now
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard Content -->
+            <div class="px-6 md:px-12 -mt-16 relative z-30 space-y-16">
+                <!-- Section: Continue Reading -->
+                <section id="historySection" style="display:none">
+                    <div class="flex items-center justify-between mb-8">
+                        <h2 class="text-3xl font-bold font-headline tracking-tight">Continue Reading</h2>
+                        <a onclick="switchTab('history')" class="text-primary text-sm font-bold uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all cursor-pointer">View All <span class="material-symbols-outlined text-sm">arrow_forward</span></a>
+                    </div>
+                    <div id="historyGrid" class="flex gap-6 overflow-x-auto no-scrollbar pb-6 snap-x snap-mandatory">
+                        <!-- Progressive Cards -->
+                    </div>
+                </section>
+
+                <!-- Section: Trending Now -->
+                <section>
+                    <div class="flex items-center justify-between mb-8">
+                        <h2 id="listTitle" class="text-3xl font-bold font-headline tracking-tight">Trending Now</h2>
+                    </div>
+                    <div id="mangaRow" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                        <!-- Trending Cards -->
+                    </div>
+                    <div id="listEmpty" class="hidden py-10 text-center">
+                        <p class="text-on-surface-variant">No manga available at the moment.</p>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Details Modal -->
+    <div id="detailsModal" class="details-modal" onclick="if(event.target === this) closeDetailsModal()">
+        <div class="w-full max-w-4xl max-h-[85vh] overflow-hidden glass-apple rounded-3xl flex flex-col md:flex-row m-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative border border-white/10">
+            <button onclick="closeDetailsModal()" class="absolute top-6 right-6 z-30 w-10 h-10 rounded-full glass flex items-center justify-center hover:bg-white/10 transition-all">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            
+            <!-- Left Header (Image) -->
+            <div class="md:w-1/3 relative h-[300px] md:h-auto overflow-hidden">
+                <img id="detailCover" class="w-full h-full object-cover" src="" />
+                <div class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-transparent to-[#0e0e0e]/90 md:to-transparent"></div>
+            </div>
+            
+            <!-- Content -->
+            <div class="md:w-2/3 p-6 md:p-10 overflow-y-auto no-scrollbar bg-black/20">
+                <div class="flex flex-col h-full">
+                    <div class="flex-grow">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span id="detailStatus" class="bg-primary/20 text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Ongoing</span>
+                            <span id="detailMeta" class="text-on-surface-variant text-sm font-bold">2023 • EN</span>
+                            <select id="langSelect" class="bg-surface-variant/50 border-none rounded-md px-2 py-1 text-[10px] font-bold text-on-surface focus:ring-1 focus:ring-primary cursor-pointer" onchange="if(currentMangaId){loadMangaInfo(currentMangaId, {forceRefresh:true})}">
+                                <option value="pt-br">PT-BR</option>
+                                <option value="en">EN</option>
+                                <option value="es-la">ES-LA</option>
+                                <option value="all">ALL</option>
+                            </select>
+                        </div>
+                        <h2 id="detailTitle" class="text-3xl md:text-4xl font-black font-headline tracking-tighter mb-4">Manga Title</h2>
+                        <div id="detailDesc" class="desc-scroll text-on-surface-variant text-sm md:text-base leading-relaxed mb-6 max-h-[7.5rem] overflow-y-auto pr-2">
+                             Manga description goes here...
+                        </div>
+                        
+                        <div id="tagWrap" class="flex flex-wrap gap-2 mb-8">
+                            <!-- Tags -->
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-4 mb-10">
+                            <button id="favoriteBtn" onclick="toggleFavoriteCurrent()" class="flex items-center gap-2 border border-outline-variant/30 hover:bg-white/5 px-6 py-3 rounded-xl font-bold transition-all">
+                                <span class="material-symbols-outlined text-primary">heart_plus</span> Favorite
+                            </button>
+                            <button onclick="readLatestChapter()" class="flex-1 bg-primary text-on-primary px-6 py-3 rounded-xl font-black hover:scale-[1.02] active:scale-95 transition-all">
+                                Read Latest
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Chapter List Section -->
+                    <div class="mt-8">
+                        <div class="flex items-center justify-between mb-6">
+                            <h4 class="text-xl font-black font-headline tracking-tight">Chapters</h4>
+                            <div class="flex items-center gap-4">
+                                <input id="chapterFilterInput" class="bg-surface-variant/30 border-none rounded-lg text-xs px-4 py-2 w-48 focus:ring-1 focus:ring-primary" placeholder="Filter..." oninput="onChapterFilterChange()"/>
+                                <button id="chapterSortBtn" onclick="toggleChapterSort()" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">swap_vert</button>
+                            </div>
+                        </div>
+                        <div id="chapterList" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <!-- Chapters here -->
+                        </div>
+                        <div id="chapterEmpty" class="hidden py-4 text-sm text-on-surface-variant">No chapters available for this source.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reader Overlay -->
+    <div id="reader" class="reader no-scrollbar">
+        <!-- Top Control Bar -->
+        <nav class="sticky top-0 w-full z-50 glass px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <button onclick="closeReader()" class="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-all">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <div>
+                    <h3 id="readerTitle" class="font-black font-headline text-lg leading-none">Chapter Title</h3>
+                    <p id="readerSub" class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mt-1">Status</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Book specific controls -->
+                <div id="bookReadingControls" class="hidden flex items-center gap-3 mr-4">
+                    <div class="flex items-center glass rounded-full px-3 py-1.5 gap-2">
+                        <button onclick="changeBookFontSize(-1)" class="material-symbols-outlined text-base hover:text-primary transition-all">text_decrease</button>
+                        <span id="bookFontSizeLabel" class="text-xs font-black w-10 text-center">100%</span>
+                        <button onclick="changeBookFontSize(1)" class="material-symbols-outlined text-base hover:text-primary transition-all">text_increase</button>
+                    </div>
+                    <div class="flex items-center glass rounded-full px-2 py-1.5 gap-2">
+                        <button onclick="setBookTheme('light')" class="w-6 h-6 rounded-full bg-white border border-gray-400 hover:scale-110 transition-transform" title="Light Theme"></button>
+                        <button onclick="setBookTheme('sepia')" class="w-6 h-6 rounded-full bg-[#f4ecd8] border border-[#d3c2a3] hover:scale-110 transition-transform" title="Sepia Theme"></button>
+                        <button onclick="setBookTheme('dark')" class="w-6 h-6 rounded-full bg-[#1a1a1a] border border-gray-600 hover:scale-110 transition-transform" title="Dark Theme"></button>
+                    </div>
+                </div>
+
+                <div id="mangaReadingControls" class="flex items-center glass rounded-full px-2 py-1 gap-1">
+                    <select id="readerEngine" class="bg-transparent border-none text-[10px] font-bold text-on-surface focus:ring-0 cursor-pointer">
+                        <option value="auto">Auto</option>
+                        <option value="mangapi">MangApi</option>
+                        <option value="sugoi">Sugoi</option>
+                        <option value="libre">Libre</option>
+                    </select>
+                    <span class="w-[1px] h-3 bg-white/20"></span>
+                    <select id="readerTargetLang" class="bg-transparent border-none text-[10px] font-bold text-on-surface focus:ring-0 cursor-pointer">
+                        <option value="pt">PT</option>
+                        <option value="en">EN</option>
+                        <option value="es">ES</option>
+                    </select>
+                    <button id="btnTranslate" onclick="translateCurrentChapterPages()" class="bg-primary text-on-primary text-[10px] font-black px-3 py-1 rounded-full hover:scale-105 transition-all">
+                        Translate
+                    </button>
+                </div>
+                <button onclick="toggleDataSaver()" id="btnSaver" class="text-[10px] font-black px-3 py-2 rounded-lg hover:bg-white/10 transition-all border border-outline-variant/30">
+                    Data Saver: OFF
+                </button>
+            </div>
+        </nav>
+
+        <!-- Reading Progress -->
+        <div id="translateProgressWrap" class="hidden px-6 py-2 bg-primary/10 border-b border-primary/20">
+            <div class="flex items-center justify-between mb-1">
+                <span id="translateProgressLabel" class="text-[10px] font-black text-primary uppercase">Translating...</span>
+                <span id="translateProgressPct" class="text-[10px] font-black text-primary">0%</span>
+            </div>
+            <div class="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                <div id="translateProgressFill" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Reader Pages Container -->
+        <div id="readerPages" class="w-full max-w-4xl mx-auto py-8 px-4 flex flex-col gap-4">
+            <!-- Pages will be rendered here -->
+        </div>
+
+        <!-- Book Content Container -->
+        <div id="readerBookContent" class="hidden w-full mx-auto py-20 px-6 text-lg leading-relaxed font-serif">
+             <!-- Text content here -->
+        </div>
+        <iframe id="readerIframe" class="hidden w-full h-screen border-none" src=""></iframe>
+
+        <!-- Bottom Controls -->
+        <div class="sticky bottom-6 mx-auto glass rounded-full px-8 py-4 flex items-center gap-12 shadow-2xl z-50 mb-6">
+            <button id="btnPrevChapter" onclick="openNeighborChapter(-1)" class="material-symbols-outlined hover:text-primary transition-colors disabled:opacity-20">chevron_left</button>
+            <div class="text-[10px] font-black uppercase tracking-widest text-center">
+                <span id="readerPageIndicator">Page 0/0</span>
+                <div id="readerProgressIndicator" class="text-primary">0%</div>
+            </div>
+            <button id="btnNextChapter" onclick="openNeighborChapter(1)" class="material-symbols-outlined hover:text-primary transition-colors disabled:opacity-20">chevron_right</button>
+        </div>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe h-16 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-outline-variant/10 rounded-t-2xl">
+        <a onclick="switchTab('home')" class="tab-btn-m flex flex-col items-center justify-center text-primary active:scale-90 transition-all cursor-pointer" data-tab="home">
+            <span class="material-symbols-outlined font-fill-1">home</span>
+            <span class="font-headline text-[8px] font-medium uppercase tracking-widest mt-0.5">Home</span>
+        </a>
+        <a onclick="switchTab('search')" class="tab-btn-m flex flex-col items-center justify-center text-gray-500 hover:text-white transition-all active:scale-90 cursor-pointer" data-tab="search">
+            <span class="material-symbols-outlined">explore</span>
+            <span class="font-headline text-[8px] font-medium uppercase tracking-widest mt-0.5">Search</span>
+        </a>
+        <a onclick="switchTab('favorites')" class="tab-btn-m flex flex-col items-center justify-center text-gray-500 hover:text-white transition-all active:scale-90 cursor-pointer" data-tab="favorites">
+            <span class="material-symbols-outlined">import_contacts</span>
+            <span class="font-headline text-[8px] font-medium uppercase tracking-widest mt-0.5">Library</span>
+        </a>
+        <a onclick="switchTab('history')" class="tab-btn-m flex flex-col items-center justify-center text-gray-500 hover:text-white transition-all active:scale-90 cursor-pointer" data-tab="history">
+            <span class="material-symbols-outlined">history</span>
+            <span class="font-headline text-[8px] font-medium uppercase tracking-widest mt-0.5">History</span>
+        </a>
+    </nav>
+
+    <!-- JS Logic -->
+    <script>
+        const API = 'http://127.0.0.1:5001';
+        const STORAGE_KEYS = {
+            favorites: 'tools63_manga_favorites_v1',
+            history: 'tools63_manga_history_v1',
+            translationEngine: 'tools63_manga_translation_engine_v1',
+            mangaInfoCache: 'tools63_manga_info_cache_v1',
+            mangaSource: 'tools63_manga_source_v1'
+        };
+        const TABS = ['home', 'favorites', 'history', 'search'];
+        const MANGA_INFO_CACHE_TTL_MS = 1000 * 60 * 30;
+        const MANGA_INFO_CACHE_MAX_ITEMS = 36;
+
+        let currentMangaId = null;
+        let currentMangaInfo = null;
+        let currentChapterPayload = null;
+        let currentReaderSubtitle = '';
+        let translatedPages = null;
+        let translationMeta = null;
+        let translationEnabled = false;
+        let useDataSaver = false;
+        let currentContentType = 'manga'; // manga or books
+        let currentChapterId = null;
+        let currentChapterIndex = -1;
+        let chapterObserver = null;
+        let translationInProgress = false;
+        const mangaInfoMemoryCache = new Map();
+        let mangaInfoLoadNonce = 0;
+        let chapterSortMode = 'desc';
+        let chapterFilterText = '';
+
+        // Util
+        function sanitize(text) {
+            return (text || '').toString().replace(/[<>&"']/g, (s) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[s]));
+        }
+
+        function readStorage(key, fallback) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return fallback;
+                const parsed = JSON.parse(raw);
+                return Array.isArray(fallback) ? (Array.isArray(parsed) ? parsed : fallback) : (parsed || fallback);
+            } catch { return fallback; }
+        }
+
+        function writeStorage(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+        }
+
+        function setContentType(type) {
+            currentContentType = type;
+            const mBtn = document.getElementById('type-manga');
+            const bBtn = document.getElementById('type-books');
+            if (mBtn) mBtn.className = type === 'manga' ? 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary' : 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white';
+            if (bBtn) bBtn.className = type === 'books' ? 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary' : 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white';
+            
+            const selector = document.getElementById('sourceSelect');
+            if (selector) {
+                if (type === 'books') {
+                    selector.innerHTML = '<option value="google-books">Source: Google Books</option><option value="gutenberg">Source: Gutenberg</option><option value="openlibrary">Source: OpenLibrary</option><option value="internet-archive">Source: Internet Archive</option><option value="wikisource">Source: Wikisource</option>';
+                } else {
+                    selector.innerHTML = '<option value="mangadex">Source: MangaDex</option><option value="mangakakalot">Source: Kakalot</option><option value="mangasee123">Source: MangaSee</option>';
+                }
+            }
+            loadTrending();
+        }
+
+        function onSourceChange() {
+            const source = document.getElementById('sourceSelect').value;
+            writeStorage(currentContentType === 'books' ? 'tools63_book_source' : STORAGE_KEYS.mangaSource, source);
+            loadTrending();
+        }
+
+        // Tabs Logic
+        function switchTab(tab) {
+            TABS.forEach(t => {
+                const section = document.getElementById('tab-' + t);
+                if (section) section.style.display = (t === tab) ? '' : 'none';
+                
+                const btns = document.querySelectorAll(`.tab-btn[data-tab="${t}"], .tab-btn-m[data-tab="${t}"]`);
+                btns.forEach(btn => {
+                    if (t === tab) {
+                        btn.classList.add('active', 'text-primary');
+                        btn.classList.remove('text-gray-400', 'text-gray-500');
+                        const icon = btn.querySelector('.material-symbols-outlined');
+                        if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+                    } else {
+                        btn.classList.remove('active', 'text-primary');
+                        btn.classList.add(btn.classList.contains('tab-btn-m') ? 'text-gray-500' : 'text-gray-400');
+                        const icon = btn.querySelector('.material-symbols-outlined');
+                        if (icon) icon.style.fontVariationSettings = "'FILL' 0";
+                    }
+                });
+            });
+            
+            if (tab === 'favorites') renderFavorites();
+            if (tab === 'history') renderHistoryTab();
+            
+            localStorage.setItem('tools63_manga_tab', tab);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Search
+        async function searchManga() {
+            const q = (document.getElementById('searchInput').value || '').trim();
+            if (!q) { switchTab('home'); return; }
+            switchTab('search');
+            
+            const source = document.getElementById('sourceSelect').value;
+            const row = document.getElementById('searchMangaRow');
+            const empty = document.getElementById('searchListEmpty');
+            const title = document.getElementById('searchListTitle');
+            
+            row.innerHTML = '<div class="col-span-full flex justify-center py-20"><div class="spinner"></div></div>';
+            empty.classList.add('hidden');
+            title.textContent = `Search results for "${q}"`;
+
+            try {
+                const endpoint = currentContentType === 'books' ? `/books/search/${encodeURIComponent(q)}` : `/manga/search/${encodeURIComponent(q)}`;
+                const r = await fetch(`${API}${endpoint}?limit=30&source=${encodeURIComponent(source)}`);
+                const d = await r.json();
+                
+                if (!d.results || !d.results.length) {
+                    row.innerHTML = ''; empty.classList.remove('hidden'); return;
+                }
+                row.innerHTML = d.results.map(m => mangaCardHtml(m)).join('');
+            } catch (err) { row.innerHTML = ''; empty.classList.remove('hidden'); }
+        }
+
+        function mangaCardHtml(m) {
+            const provider = String(m.provider || (currentContentType === 'books' ? 'google-books' : 'mangadex')).toLowerCase();
+            const sub = currentContentType === 'books' ? (m.authors || []).join(', ') : (m.status || 'Unknown');
+            return `
+                <div class="group cursor-pointer manga-card-hover transition-all duration-300" onclick="${currentContentType === 'books' ? `openBookInfo('${m.id}')` : `loadMangaInfo('${m.id}')`}">
+                    <div class="relative aspect-[2/3] rounded-2xl overflow-hidden mb-4 bg-surface-container-low shadow-lg">
+                        <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${m.cover || 'placeholder.png'}" onerror="this.src='placeholder.png'" alt="${sanitize(m.title)}" loading="lazy"/>
+                        <div class="absolute top-3 left-3 flex gap-2">
+                             <span class="bg-black/60 backdrop-blur-md text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-tighter border border-white/10 group-hover:bg-primary/80 transition-all">${provider.replace('google-', '')}</span>
+                        </div>
+                    </div>
+                    <h4 class="text-sm font-bold font-headline mb-1 line-clamp-1 group-hover:text-primary transition-colors">${sanitize(m.title)}</h4>
+                    <p class="text-[10px] text-on-surface-variant font-black uppercase tracking-widest truncate">${sanitize(sub)}</p>
+                </div>
+            `;
+        }
+
+        // Source Management
+        function getSelectedMangaSource() {
+            const fallback = readStorage(STORAGE_KEYS.mangaSource, 'all');
+            const selector = document.getElementById('sourceSelect');
+            return selector?.value || fallback;
+        }
+
+        function onMangaSourceChange() {
+            const source = document.getElementById('sourceSelect').value;
+            writeStorage(STORAGE_KEYS.mangaSource, source);
+            loadTrending();
+        }
+
+        // Details Modal
+        function openDetailsModal() {
+            document.getElementById('detailsModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        async function loadMangaInfo(mangaId, options = {}) {
+            currentMangaId = mangaId;
+            const requestNonce = ++mangaInfoLoadNonce;
+            const lang = document.getElementById('langSelect').value || 'pt-br';
+            const provider = options.provider || getProviderFromId(mangaId);
+            
+            if (!options.isPrefetch) {
+                openDetailsModal();
+                resetDetailsPanel();
+            }
+
+            // Cache check
+            const cached = getCachedMangaInfo(mangaId, lang);
+            if (cached && !options.forceRefresh) {
+                if (!options.isPrefetch) applyMangaInfoData(cached, mangaId, lang);
+                return;
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            
+            try {
+                const url = `${API}/manga/info/${encodeURIComponent(mangaId)}?lang=${encodeURIComponent(lang)}&source=${encodeURIComponent(provider)}`;
+                console.log(`[MangaHub] Fetching: ${url}`);
+                const r = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (!r.ok) {
+                    const errorText = await r.text();
+                    throw new Error(`Server returned ${r.status}: ${errorText}`);
+                }
+                const d = await r.json();
+                if (requestNonce !== mangaInfoLoadNonce && !options.isPrefetch) return;
+                
+                setCachedMangaInfo(mangaId, lang, d);
+                if (!options.isPrefetch) applyMangaInfoData(d, mangaId, lang);
+            } catch (err) {
+                clearTimeout(timeoutId);
+                console.error(`[MangaHub] Error loading manga info:`, err);
+                if (requestNonce !== mangaInfoLoadNonce || options.isPrefetch) return;
+                
+                const isTimeout = err.name === 'AbortError';
+                document.getElementById('detailTitle').textContent = 'Error Loading Info';
+                document.getElementById('detailDesc').textContent = isTimeout 
+                    ? 'A requisição demorou muito tempo (Timeout). Tente novamente ou troque a fonte.'
+                    : `Falha ao carregar detalhes: ${err.message || 'Erro desconhecido'}.`;
+            }
+        }
+
+        function prefetchMangaInfo(id) {
+            loadMangaInfo(id, { isPrefetch: true });
+        }
+
+        function resetDetailsPanel() {
+            document.getElementById('detailTitle').textContent = 'Loading...';
+            document.getElementById('detailDesc').textContent = 'Fetching details from source...';
+            document.getElementById('detailCover').src = 'placeholder.png';
+            document.getElementById('chapterList').innerHTML = '<div class="col-span-full py-10 flex justify-center"><div class="spinner"></div></div>';
+            document.getElementById('tagWrap').innerHTML = '';
+        }
+
+        function applyMangaInfoData(d, mangaId, lang) {
+            currentMangaInfo = {
+                id: d.id || mangaId,
+                title: d.title || 'Untitled',
+                cover: d.cover || 'placeholder.png',
+                status: d.status || 'unknown',
+                year: d.year || null,
+                provider: d.provider || getProviderFromId(mangaId),
+                lang: d.resolvedLang || lang,
+                chapters: d.chapters || []
+            };
+
+            document.getElementById('detailCover').src = d.cover || '';
+            document.getElementById('detailTitle').textContent = d.title || 'Untitled';
+            document.getElementById('detailStatus').textContent = (d.status || 'unknown').toUpperCase();
+            document.getElementById('detailMeta').textContent = `${d.year || ''} • ${(d.resolvedLang || lang).toUpperCase()}`;
+            document.getElementById('detailDesc').textContent = d.description || 'No description available.';
+            
+            renderTags(d.tags || []);
+            setFavoriteButtonState();
+            renderChapterList();
+        }
+
+        function renderTags(tags) {
+            document.getElementById('tagWrap').innerHTML = (tags || []).slice(0, 8).map(t => 
+                `<span class="bg-surface-variant/30 text-on-surface-variant px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">${sanitize(t)}</span>`
+            ).join('');
+        }
+
+        function renderChapterList() {
+            const list = document.getElementById('chapterList');
+            const all = [...(currentMangaInfo?.chapters || [])];
+            
+            all.sort((a, b) => {
+                const aa = parseFloat(String(a.chapter).replace(',', '.'));
+                const bb = parseFloat(String(b.chapter).replace(',', '.'));
+                return chapterSortMode === 'desc' ? bb - aa : aa - bb;
+            });
+
+            const q = chapterFilterText.trim().toLowerCase();
+            const filtered = q ? all.filter(c => String(c.chapter).toLowerCase().includes(q) || String(c.title).toLowerCase().includes(q)) : all;
+            
+            list.innerHTML = filtered.map(c => `
+                <button class="chapter-btn group bg-surface-variant/20 border border-outline-variant/10 hover:border-primary/50 p-3 rounded-xl transition-all text-left ${currentChapterId === c.id ? 'active' : ''}" onclick="openChapterById('${c.id}')">
+                    <span class="block text-xs font-black leading-tight">CH. ${sanitize(String(c.chapter))}</span>
+                    <span class="block text-[10px] text-on-surface-variant font-bold truncate mt-1">${sanitize(c.title || '')}</span>
+                </button>
+            `).join('');
+            
+            document.getElementById('chapterEmpty').style.display = filtered.length ? 'none' : 'block';
+        }
+
+        function openChapterById(chapterId, targetPage = 1) {
+            const ch = currentMangaInfo.chapters.find(c => c.id === chapterId);
+            if (!ch) return;
+            openChapter(ch.id, ch.chapter, ch.title, ch.language || currentMangaInfo.lang, targetPage);
+        }
+
+        async function openChapter(chapterId, chapterNo, chapterTitle, lang, targetPage = 1) {
+            window.lastTargetPage = targetPage || 1;
+            closeDetailsModal();
+            const reader = document.getElementById('reader');
+            reader.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            
+            document.getElementById('readerTitle').textContent = `Chapter ${chapterNo}`;
+            currentReaderSubtitle = chapterTitle || '';
+            document.getElementById('readerSub').textContent = currentReaderSubtitle;
+            document.getElementById('readerPages').innerHTML = '<div class="py-20 flex flex-col items-center gap-4"><div class="spinner"></div><p class="text-sm font-bold text-on-surface-variant animate-pulse">Loading pages...</p></div>';
+            
+            resetTranslateProgress();
+            currentChapterId = chapterId;
+            readingSequence = [...currentMangaInfo.chapters].sort((a, b) => {
+                const aa = parseFloat(String(a.chapter).replace(',', '.'));
+                const bb = parseFloat(String(b.chapter).replace(',', '.'));
+                return aa - bb;
+            });
+            currentChapterIndex = readingSequence.findIndex(c => c.id === chapterId);
+            updateChapterNavState();
+
+            try {
+                const source = getProviderFromId(chapterId);
+                const r = await fetch(`${API}/manga/chapter/${encodeURIComponent(chapterId)}/pages?source=${encodeURIComponent(source)}`);
+                const payload = await r.json();
+                
+                if (!r.ok) throw new Error(payload.error || 'Failed to fetch pages');
+                
+                currentChapterPayload = payload;
+                renderReaderPages();
+                
+                // Add to history
+                pushHistoryEntry({
+                    mangaId: currentMangaInfo.id,
+                    mangaTitle: currentMangaInfo.title,
+                    cover: currentMangaInfo.cover,
+                    chapterId,
+                    chapterNo: String(chapterNo),
+                    chapterTitle: chapterTitle || '',
+                    lang: lang || currentMangaInfo.lang,
+                    updatedAt: Date.now()
+                });
+            } catch (err) {
+                document.getElementById('readerPages').innerHTML = `<div class="py-20 text-center"><p class="text-on-surface-variant">Error: ${err.message}</p></div>`;
+            }
+        }
+
+        function renderReaderPages() {
+            const wrap = document.getElementById('readerPages');
+            const pages = useDataSaver ? (currentChapterPayload.pagesDataSaver || []) : (currentChapterPayload.pages || []);
+            const displayPages = (translationEnabled && translatedPages) ? translatedPages : pages;
+            
+            if (!displayPages.length) {
+                wrap.innerHTML = '<p class="text-center text-on-surface-variant py-20">This chapter has no pages available.</p>';
+                return;
+            }
+
+            wrap.innerHTML = displayPages.map((p, i) => `
+                <div class="relative reader-page-item group bg-surface-container-low rounded-xl overflow-hidden min-h-[400px]">
+                    <img src="${p}" class="w-full h-auto rounded-xl shadow-2xl transition-all duration-700" loading="${i < 3 ? 'eager' : 'lazy'}" alt="page ${i+1}"/>
+                    <span class="absolute top-4 left-4 glass text-[10px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">Page ${i+1}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('btnSaver').textContent = `Data Saver: ${useDataSaver ? 'ON' : 'OFF'}`;
+            document.getElementById('readerPageIndicator').textContent = `Page 1/${displayPages.length}`;
+            setupReaderObserver();
+
+            // Restore scroll position
+            if (window.lastTargetPage > 1) {
+                setTimeout(() => {
+                    const items = wrap.querySelectorAll('.reader-page-item');
+                    if (items[window.lastTargetPage - 1]) {
+                        items[window.lastTargetPage - 1].scrollIntoView({ behavior: 'smooth' });
+                    }
+                    window.lastTargetPage = 1;
+                }, 300);
+            }
+        }
+
+        function closeReader() {
+            const reader = document.getElementById('reader');
+            reader.classList.remove('open');
+            document.body.style.overflow = '';
+            // Restore navigation for manga mode
+            document.getElementById('btnPrevChapter').onclick = () => openNeighborChapter(-1);
+            document.getElementById('btnNextChapter').onclick = () => openNeighborChapter(1);
+            
+            if (chapterObserver) chapterObserver.disconnect();
+            
+            // Reset contents
+            document.getElementById('readerPages').classList.remove('hidden');
+            document.getElementById('readerBookContent').classList.add('hidden');
+            document.getElementById('readerIframe').classList.add('hidden');
+            document.getElementById('readerIframe').src = "";
+
+            // Reset controls
+            document.getElementById('bookReadingControls').classList.add('hidden');
+            document.getElementById('mangaReadingControls').classList.remove('hidden');
+            document.getElementById('btnSaver').classList.remove('hidden');
+            
+            // Restore dark reader background (default)
+            reader.style.backgroundColor = '#0a0a0b';
+        }
+
+        // Translation logic
+        async function translateCurrentChapterPages() {
+            if (!currentChapterPayload || translationInProgress) return;
+            
+            if (translationEnabled) {
+                translationEnabled = false;
+                translatedPages = null;
+                document.getElementById('btnTranslate').textContent = 'Translate';
+                renderReaderPages();
+                resetTranslateProgress();
+                return;
+            }
+
+            const targetLang = document.getElementById('readerTargetLang').value;
+            const engine = document.getElementById('readerEngine').value;
+            const pages = useDataSaver ? (currentChapterPayload.pagesDataSaver || []) : (currentChapterPayload.pages || []);
+            
+            translationInProgress = true;
+            translationEnabled = true;
+            const btn = document.getElementById('btnTranslate');
+            btn.disabled = true;
+            btn.textContent = '...';
+            
+            startTranslateProgress(pages.length);
+            translatedPages = [...pages];
+
+            try {
+                for (let i = 0; i < pages.length; i++) {
+                    const r = await fetch(`${API}/manga/translate-pages`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pages: [pages[i]], sourceLang: 'ja', targetLang, engine })
+                    });
+                    const d = await r.json();
+                    
+                    if (d.pages && d.pages[0] !== pages[i]) {
+                        translatedPages[i] = d.pages[0];
+                        renderReaderPages(); // Partial update
+                    }
+                    
+                    const pct = Math.round(((i + 1) / pages.length) * 100);
+                    setTranslateProgress(pct, `Translating Part ${i + 1}/${pages.length}`);
+                }
+                
+                finishTranslateProgress(true, pages.length, pages.length);
+                btn.textContent = 'Original';
+            } catch (err) {
+                finishTranslateProgress(false, 0, pages.length);
+                btn.textContent = 'Retry';
+            } finally {
+                translationInProgress = false;
+                btn.disabled = false;
+            }
+        }
+
+        // History 
+        function updateHistoryProgress(mediaId, chapterId, pageNum, scrollPct) {
+            let history = readStorage(STORAGE_KEYS.history, []);
+            // Search by mediaId (covers both manga and books)
+            const entry = history.find(h => h.mangaId === mediaId || h.id === mediaId);
+            if (entry) {
+                entry.lastPage = pageNum || entry.lastPage || 1;
+                entry.progress = scrollPct || entry.progress || 0;
+                entry.updatedAt = Date.now();
+                writeStorage(STORAGE_KEYS.history, history);
+            }
+        }
+
+        function pushHistoryEntry(entry) {
+            let history = readStorage(STORAGE_KEYS.history, []);
+            // Remove previous entry for SAME manga to put the most recent at top
+            history = history.filter(h => h.mangaId !== entry.mangaId);
+            history.unshift({
+                ...entry,
+                lastPage: entry.lastPage || 1,
+                progress: entry.progress || 0
+            });
+            writeStorage(STORAGE_KEYS.history, history.slice(0, 50));
+            renderHistoryHome();
+        }
+
+        function renderHistoryHome() {
+            const container = document.getElementById('historyGrid');
+            const section = document.getElementById('historySection');
+            const history = readStorage(STORAGE_KEYS.history, []);
+            
+            if (!history.length) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            section.style.display = 'block';
+            container.innerHTML = history.map(h => {
+                const isBook = h.type === 'book';
+                const resumeFn = isBook ? `openBookInfo('${h.mangaId}')` : `resumeHistory('${h.mangaId}', '${h.chapterId}', ${h.lastPage})`;
+                return `
+                <div class="flex-none w-72 snap-start group cursor-pointer" onclick="${resumeFn}">
+                    <div class="relative aspect-[2/3] rounded-3xl overflow-hidden mb-4 bg-surface-container-high transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-3xl border border-white/5">
+                        <img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="${h.cover || 'placeholder.png'}" onerror="this.src='placeholder.png'" alt="cover"/>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-white/10 overflow-hidden">
+                            <div class="h-full bg-primary transition-all duration-500" style="width: ${h.progress || 0}%"></div>
+                        </div>
+
+                        <div class="absolute bottom-4 left-4 right-4">
+                             <div class="flex items-center gap-2 mb-2">
+                                <span class="${isBook ? 'bg-secondary' : 'bg-primary'} text-on-primary text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">${isBook ? 'Book' : `Cap. ${h.chapterNo}`}</span>
+                                <span class="text-white/60 text-[8px] font-black uppercase bg-white/5 px-2 py-0.5 rounded">${(h.lang || 'PT-BR').toUpperCase()}</span>
+                                ${h.progress > 0 ? `<span class="text-primary text-[8px] font-black uppercase bg-primary/10 px-2 py-0.5 rounded">${Math.round(h.progress)}%</span>` : ''}
+                             </div>
+                             <h3 class="text-sm font-bold font-headline truncate text-white mb-1">${sanitize(h.mangaTitle)}</h3>
+                             <p class="text-[10px] text-white/50 font-bold truncate">${isBook ? (h.authors || 'Read Now') : sanitize(h.chapterTitle || 'Reading...')}</p>
+                        </div>
+                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm">
+                             <span class="material-symbols-outlined text-5xl text-primary font-fill-1">play_circle</span>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+        
+        function renderHistoryTab() {
+            const grid = document.getElementById('historyGridTab');
+            const empty = document.getElementById('historyEmptyDetail');
+            const history = readStorage(STORAGE_KEYS.history, []);
+            
+            if (!history.length) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            
+            empty.classList.add('hidden');
+            grid.innerHTML = history.map(h => `
+                <div class="glass p-4 rounded-3xl flex gap-4 hover:bg-white/5 transition-all cursor-pointer group" onclick="resumeHistory('${h.mangaId}', '${h.chapterId}')">
+                    <img src="${h.cover || 'placeholder.png'}" onerror="this.src='placeholder.png'" class="w-20 h-28 rounded-2xl object-cover shadow-lg group-hover:scale-105 transition-transform"/>
+                    <div class="flex-1 min-w-0 flex flex-col justify-center">
+                        <h4 class="font-black font-headline text-lg truncate mb-1">${sanitize(h.mangaTitle)}</h4>
+                        <p class="text-xs text-on-surface-variant font-bold mb-2">Chapter ${h.chapterNo} • ${h.lang.toUpperCase()}</p>
+                        <div class="flex items-center gap-2">
+                             <span class="material-symbols-outlined text-xs text-primary">schedule</span>
+                             <span class="text-[9px] text-on-surface-variant font-bold uppercase">${new Date(h.updatedAt).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function resumeHistory(mangaId, chapterId, targetPage = 1) {
+            await loadMangaInfo(mangaId);
+            openChapterById(chapterId, targetPage);
+        }
+
+        // Favorites
+        function renderFavorites() {
+            const row = document.getElementById('favoritesRow');
+            const empty = document.getElementById('favoritesEmpty');
+            const items = readStorage(STORAGE_KEYS.favorites, []);
+            
+            if (!items.length) {
+                row.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            
+            empty.classList.add('hidden');
+            row.innerHTML = items.map(m => mangaCardHtml(m)).join('');
+        }
+
+        function toggleFavoriteCurrent() {
+            if (!currentMangaInfo) return;
+            const favs = readStorage(STORAGE_KEYS.favorites, []);
+            const idx = favs.findIndex(f => f.id === currentMangaInfo.id);
+            if (idx >= 0) favs.splice(idx, 1);
+            else favs.unshift(currentMangaInfo);
+            writeStorage(STORAGE_KEYS.favorites, favs);
+            setFavoriteButtonState();
+        }
+
+        function setFavoriteButtonState() {
+            const btn = document.getElementById('favoriteBtn');
+            const favs = readStorage(STORAGE_KEYS.favorites, []);
+            const isFav = favs.some(f => f.id === currentMangaId);
+            btn.classList.toggle('bg-primary/10', isFav);
+            btn.innerHTML = isFav ? '<span class="material-symbols-outlined text-primary font-fill-1">heart_check</span> In Library' : '<span class="material-symbols-outlined text-primary">heart_plus</span> Favorite';
+        }
+
+        // Trending
+        async function loadTrending() {
+            const row = document.getElementById('mangaRow');
+            const listTitle = document.getElementById('listTitle');
+            const source = document.getElementById('sourceSelect').value || 'all';
+            
+            row.innerHTML = '<div class="col-span-full py-20 flex justify-center"><div class="spinner"></div></div>';
+            
+            if (currentContentType === 'books') {
+                listTitle.textContent = 'Popular Books';
+                try {
+                    const r = await fetch(`${API}/books/trending?source=${encodeURIComponent(source)}`);
+                    const d = await r.json();
+                    if (d.results && d.results.length) {
+                        row.innerHTML = d.results.map(m => mangaCardHtml(m)).join('');
+                        updateHero(d.results[0]);
+                    } else {
+                        row.innerHTML = '<p class="col-span-full text-center py-20">No books found.</p>';
+                    }
+                } catch(e) { row.innerHTML = '<p class="col-span-full text-center text-red-400">Error loading books.</p>'; }
+            } else {
+                listTitle.textContent = source === 'all' ? 'Trending Now' : `Trending in ${source.charAt(0).toUpperCase() + source.slice(1)}`;
+                try {
+                    const r = await fetch(`${API}/manga/trending?limit=24&source=${encodeURIComponent(source)}`);
+                    const d = await r.json();
+                    if (d.results && d.results.length) {
+                        row.innerHTML = d.results.map(m => mangaCardHtml(m)).join('');
+                        updateHero(d.results[0]);
+                    } else {
+                        row.innerHTML = '<p class="col-span-full text-center py-20">No trending titles found.</p>';
+                    }
+                } catch(e) { row.innerHTML = '<p class="col-span-full text-center text-red-400">Failed to load trending items.</p>'; }
+            }
+        }
+
+        async function openBookInfo(id) {
+            const source = document.getElementById('sourceSelect').value;
+            openDetailsModal();
+            resetDetailsPanel();
+            
+            try {
+                const r = await fetch(`${API}/books/info/${id}?source=${source}`);
+                const d = await r.json();
+                currentMangaId = d.id;
+                currentMangaInfo = d;
+                
+                document.getElementById('detailTitle').textContent = d.title;
+                document.getElementById('detailDesc').innerHTML = d.description || 'No description available for this book.';
+                document.getElementById('detailCover').src = d.cover || 'placeholder.png';
+                document.getElementById('detailStatus').textContent = 'BOOK';
+                document.getElementById('detailMeta').textContent = `${(d.authors || []).join(', ')}`;
+                document.getElementById('chapterList').innerHTML = ''; 
+                document.getElementById('tagWrap').innerHTML = (d.subjects || []).slice(0, 5).map(s => `<span class="bg-primary/10 text-primary px-2 py-1 rounded-md text-[9px] uppercase font-bold">${s}</span>`).join('');
+                
+                const readBtn = document.getElementById('startReadingBtn') || document.querySelector('button[onclick="readLatestChapter()"]');
+                readBtn.onclick = () => openBookReader(d);
+                readBtn.textContent = ['gutenberg', 'internet-archive', 'wikisource'].includes(d.provider) ? 'Read Full Text' : 'Read Preview';
+                
+                setFavoriteButtonState();
+            } catch(e) { console.error(e); }
+        }
+
+        async function openBookReader(book) {
+            const reader = document.getElementById('reader');
+            const pages = document.getElementById('readerPages');
+            const bookContent = document.getElementById('readerBookContent');
+            const iframe = document.getElementById('readerIframe');
+            
+            // Cleanup previous state
+            bookContent.classList.remove('book-paged');
+            bookContent.innerHTML = '';
+            iframe.src = '';
+            
+            // Toggle controls
+            document.getElementById('bookReadingControls').classList.remove('hidden');
+            document.getElementById('mangaReadingControls').classList.add('hidden');
+            document.getElementById('btnSaver').classList.add('hidden');
+            
+            // Set navigation for book mode
+            document.getElementById('btnPrevChapter').onclick = () => navigateBookPage(-1);
+            document.getElementById('btnNextChapter').onclick = () => navigateBookPage(1);
+            
+            reader.classList.add('open', 'reader-book');
+            pages.classList.add('hidden');
+            
+            document.getElementById('readerTitle').textContent = book.title;
+            document.getElementById('readerSub').textContent = (book.authors || []).join(', ');
+            
+            const isFullText = ['gutenberg', 'internet-archive', 'wikisource'].includes(book.provider || '');
+            
+            if (isFullText) {
+                bookContent.classList.remove('hidden');
+                iframe.classList.add('hidden');
+                bookContent.innerHTML = `
+                    <div class="p-20 grid grid-cols-1 md:grid-cols-2 gap-20">
+                        ${Array(4).fill(`
+                            <div class="skeleton-book">
+                                <div class="skeleton-line w-3/4 mb-12 h-6"></div>
+                                <div class="skeleton-line w-full"></div>
+                                <div class="skeleton-line w-5/6"></div>
+                                <div class="skeleton-line w-full"></div>
+                                <div class="skeleton-line w-full"></div>
+                                <div class="skeleton-line w-2/3"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                try {
+                    const source = document.getElementById('sourceSelect').value || 'google-books';
+                    const r = await fetch(`${API}/books/content/${book.id}?source=${source}`);
+                    const text = await r.text();
+                    bookContent.innerHTML = text;
+                    
+                    // Add paged class for better reading
+                    bookContent.classList.add('book-paged');
+                    
+                    // Add scroll listener for progress
+                    bookContent.onscroll = () => {
+                        const total = bookContent.scrollWidth;
+                        const current = bookContent.scrollLeft;
+                        const viewWidth = bookContent.clientWidth;
+                        if (viewWidth > 0) {
+                            const totalPages = Math.ceil(total / viewWidth);
+                            const currentPage = Math.round(current / viewWidth) + 1;
+                            document.getElementById('readerPageIndicator').textContent = `Page ${currentPage}/${totalPages}`;
+                            const pct = Math.round((current / (total - viewWidth)) * 100) || 0;
+                            document.getElementById('readerProgressIndicator').textContent = `${pct}%`;
+                            updateHistoryProgress(book.id, 'book-content', currentPage, pct);
+                        }
+                    };
+                    
+                    // Initial progress set
+                    setTimeout(() => {
+                        const total = bookContent.scrollWidth;
+                        const viewWidth = bookContent.clientWidth;
+                        const totalPages = Math.ceil(total / viewWidth);
+                        document.getElementById('readerPageIndicator').textContent = `Page 1/${totalPages}`;
+                    }, 100);
+
+                    setBookTheme(localStorage.getItem('tools63_book_theme') || 'light');
+                    
+                    // Add Book to history
+                    pushHistoryEntry({
+                        type: 'book',
+                        mangaId: book.id,
+                        mangaTitle: book.title,
+                        cover: book.cover,
+                        authors: (book.authors || []).join(', '),
+                        lang: 'EN',
+                        updatedAt: Date.now()
+                    });
+
+                    // Restoration of scroll for books
+                    const history = readStorage(STORAGE_KEYS.history, []);
+                    const entry = history.find(h => h.mangaId === book.id);
+                    if (entry && entry.progress > 0) {
+                        setTimeout(() => {
+                            const scrollDist = reader.scrollHeight - reader.clientHeight;
+                            reader.scrollTop = (entry.progress / 100) * scrollDist;
+                            
+                            // Initialize page indicator
+                            const totalPages = Math.max(1, Math.ceil(reader.scrollHeight / reader.clientHeight));
+                            const currentPage = Math.ceil(reader.scrollTop / reader.clientHeight) + 1;
+                            document.getElementById('readerPageIndicator').textContent = `Page ${currentPage}/${totalPages}`;
+                        }, 500);
+                    } else {
+                        // Default initialization for new books
+                        setTimeout(() => {
+                            const totalPages = Math.max(1, Math.ceil(reader.scrollHeight / reader.clientHeight));
+                            document.getElementById('readerPageIndicator').textContent = `Page 1/${totalPages}`;
+                        }, 500);
+                    }
+
+                } catch(e) { bookContent.innerHTML = '<p class="text-center py-40 text-red-500">Failed to load content.</p>'; }
+            } else {
+                bookContent.classList.add('hidden');
+                iframe.classList.remove('hidden');
+                iframe.src = book.readLink || book.webReader || '';
+            }
+        }
+
+        function navigateBookPage(direction) {
+            const content = document.getElementById('readerBookContent');
+            if (!content || content.classList.contains('hidden')) return;
+            
+            const pageWidth = content.clientWidth;
+            // Scroll by exactly one viewport width
+            content.scrollBy({
+                left: direction * pageWidth,
+                behavior: 'smooth'
+            });
+        }
+
+        let bookFontSize = 100;
+        function changeBookFontSize(delta) {
+            bookFontSize = Math.max(50, Math.min(200, bookFontSize + (delta * 10)));
+            document.getElementById('readerBookContent').style.fontSize = `${bookFontSize}%`;
+            document.getElementById('bookFontSizeLabel').textContent = `${bookFontSize}%`;
+        }
+
+        function setBookTheme(theme) {
+            const content = document.getElementById('readerBookContent');
+            const reader = document.getElementById('reader');
+            localStorage.setItem('tools63_book_theme', theme);
+
+            // Remove previous theme classes
+            reader.classList.remove('light-mode');
+
+            if (theme === 'light') {
+                reader.classList.add('light-mode');
+                content.style.backgroundColor = '#ffffff';
+                content.style.color = '#121212';
+                reader.style.backgroundColor = '#f5f5f7';
+            } else if (theme === 'sepia') {
+                content.style.backgroundColor = '#f4ecd8';
+                content.style.color = '#5b4636';
+                reader.style.backgroundColor = '#ede4cc';
+            } else {
+                content.style.backgroundColor = 'transparent';
+                content.style.color = '#e0e0e0';
+                reader.style.backgroundColor = '#0e0e0e';
+            }
+        }
+
+        function updateHero(item) {
+            if (!item) return;
+            document.getElementById('heroCover').src = item.cover || 'placeholder.png';
+            document.getElementById('heroTitle').textContent = item.title || 'Featured';
+            document.getElementById('heroDesc').textContent = item.description || (currentContentType === 'books' ? `By ${(item.authors || []).join(', ')}` : 'Discover latest trending titles.');
+            document.getElementById('heroReadBtn').onclick = () => currentContentType === 'books' ? openBookInfo(item.id) : loadMangaInfo(item.id);
+        }
+
+        // Helpers
+        function getProviderFromId(id) {
+            const raw = String(id || '');
+            if (raw.includes(':')) return raw.split(':')[0].toLowerCase();
+            return 'mangadex';
+        }
+
+        function toggleChapterSort() {
+            chapterSortMode = chapterSortMode === 'desc' ? 'asc' : 'desc';
+            renderChapterList();
+        }
+
+        function onChapterFilterChange() {
+            chapterFilterText = document.getElementById('chapterFilterInput').value;
+            renderChapterList();
+        }
+
+        function getCachedMangaInfo(id, lang) {
+            const key = `${id}::${lang}`;
+            const mem = mangaInfoMemoryCache.get(key);
+            if (mem && (Date.now() - mem.savedAt) < MANGA_INFO_CACHE_TTL_MS) return mem.data;
+            return null;
+        }
+
+        function setCachedMangaInfo(id, lang, data) {
+            const key = `${id}::${lang}`;
+            mangaInfoMemoryCache.set(key, { savedAt: Date.now(), data });
+        }
+
+        // Reader Progress UI
+        function setTranslateProgress(pct, label) {
+            const wrap = document.getElementById('translateProgressWrap');
+            wrap.classList.remove('hidden');
+            document.getElementById('translateProgressFill').style.width = `${pct}%`;
+            document.getElementById('translateProgressPct').textContent = `${pct}%`;
+            document.getElementById('translateProgressLabel').textContent = label;
+        }
+        function startTranslateProgress(total) { setTranslateProgress(5, `Preparing ${total} pages...`); }
+        function finishTranslateProgress(ok, done, total) { 
+            setTranslateProgress(100, ok ? `Success (${done}/${total})` : `Failed (${done}/${total})`);
+            setTimeout(() => document.getElementById('translateProgressWrap').classList.add('hidden'), 2000);
+        }
+        function resetTranslateProgress() { document.getElementById('translateProgressWrap').classList.add('hidden'); }
+
+        function toggleDataSaver() {
+            useDataSaver = !useDataSaver;
+            if (currentChapterPayload) renderReaderPages();
+        }
+
+        function openNeighborChapter(step) {
+            if (currentChapterIndex < 0) return;
+            const target = readingSequence[currentChapterIndex + step];
+            if (target) openChapterById(target.id);
+        }
+
+        function updateChapterNavState() {
+            document.getElementById('btnPrevChapter').disabled = currentChapterIndex <= 0;
+            document.getElementById('btnNextChapter').disabled = currentChapterIndex >= readingSequence.length - 1;
+        }
+
+        function setupReaderObserver() {
+            const container = document.getElementById('reader');
+            const items = document.querySelectorAll('.reader-page-item');
+            if (chapterObserver) chapterObserver.disconnect();
+
+            chapterObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const pageNum = Array.from(items).indexOf(entry.target) + 1;
+                        document.getElementById('readerPageIndicator').textContent = `Page ${pageNum}/${items.length}`;
+                        
+                        const scrollDist = container.scrollHeight - container.clientHeight;
+                        const scrollPct = scrollDist > 0 ? Math.round((container.scrollTop / scrollDist) * 100) : 0;
+                        document.getElementById('readerProgressIndicator').textContent = `${scrollPct}%`;
+                        
+                        // Update history throttle-ish
+                        updateHistoryProgress(currentMangaId, currentChapterId, pageNum, scrollPct);
+                    }
+                });
+            }, { root: container, threshold: 0.1 }); // Use lower threshold for better reactivity
+
+            items.forEach(item => chapterObserver.observe(item));
+        }
+
+        // Init
+        const initialType = localStorage.getItem('tools63_initial_type') || 'manga';
+        setContentType(initialType);
+        
+        const savedTab = localStorage.getItem('tools63_manga_tab') || 'home';
+        switchTab(savedTab);
+        renderHistoryHome();
+
+        // Global scroll listener for book progress
+        document.getElementById('reader').addEventListener('scroll', () => {
+            if (currentContentType === 'books') {
+                const container = document.getElementById('reader');
+                const scrollDist = container.scrollHeight - container.clientHeight;
+                
+                // Calculate virtual pages
+                const totalPages = Math.max(1, Math.ceil(container.scrollHeight / container.clientHeight));
+                const currentPage = Math.min(totalPages, Math.ceil(container.scrollTop / container.clientHeight) + 1);
+                document.getElementById('readerPageIndicator').textContent = `Page ${currentPage}/${totalPages}`;
+
+                if (scrollDist > 0) {
+                    const scrollPct = Math.round((container.scrollTop / scrollDist) * 100);
+                    document.getElementById('readerProgressIndicator').textContent = `${scrollPct}%`;
+                    updateHistoryProgress(currentMangaId, null, null, scrollPct);
+                } else {
+                    document.getElementById('readerProgressIndicator').textContent = `0%`;
+                }
+            }
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (document.getElementById('reader').classList.contains('open')) closeReader();
+                else if (document.getElementById('detailsModal').classList.contains('open')) closeDetailsModal();
+            }
+        });
+    </script>
+</body>
+</html>

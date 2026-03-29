@@ -2,3 +2,13 @@ flask
 flask-cors
 yt-dlp
 imageio-ffmpeg
+requests
+beautifulsoup4
+jikanpy
+AnilistPython
+moviepy
+urllib3
+gTTS
+Pillow
+pytesseract
+rapidocr-onnxruntime

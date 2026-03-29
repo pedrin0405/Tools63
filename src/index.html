@@ -40,9 +40,13 @@
                     <i class="fas fa-play-circle"></i>
                     <span>Anime Hub</span>
                 </a>
-                <a href="#" class="nav-item">
-                    <i class="fas fa-image"></i>
-                    <span>Em Breve...</span>
+                <a href="#" class="nav-item" onclick="loadTool('manga')">
+                    <i class="fas fa-book-open"></i>
+                    <span>Manga Hub</span>
+                </a>
+                <a href="#" class="nav-item" onclick="loadTool('books')">
+                    <i class="fas fa-book"></i>
+                    <span>Book Hub</span>
                 </a>
             </div>
 
@@ -85,12 +89,15 @@
             const clicked = event ? event.currentTarget : null;
             if (clicked) clicked.classList.add('active');
 
-            if (toolName === 'youtube') {
-                iframe.src = 'tools/youtube/index.html';
-            } else if (toolName === 'snapper') {
-                iframe.src = 'tools/snapper/index.html';
-            } else if (toolName === 'anime') {
-                iframe.src = 'tools/anime/index.html';
+            if (toolName === 'youtube') iframe.src = 'tools/youtube/index.html';
+            else if (toolName === 'snapper') iframe.src = 'tools/snapper/index.html';
+            else if (toolName === 'anime') iframe.src = 'tools/anime/index.html';
+            else if (toolName === 'manga') {
+                localStorage.setItem('tools63_initial_type', 'manga');
+                iframe.src = 'tools/manga/index.html';
+            } else if (toolName === 'books') {
+                localStorage.setItem('tools63_initial_type', 'books');
+                iframe.src = 'tools/manga/index.html';
             }
         }
     </script>

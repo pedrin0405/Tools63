@@ -5,6 +5,52 @@ const { spawn } = require('child_process');
 let mainWindow;
 let pythonProcess = null;
 
+function pipeBackendOutput(stream, kind = 'stdout') {
+  let pending = '';
+  const accessLogRe = /"\s(\d{3})\s/;
+  const severeRe = /(Traceback|ERROR in app|Exception on|\bCRITICAL\b|\bFATAL\b)/i;
+
+  stream.on('data', (chunk) => {
+    pending += chunk.toString('utf8');
+    const lines = pending.split(/\r?\n/);
+    pending = lines.pop() || '';
+
+    for (const rawLine of lines) {
+      const line = rawLine.trimEnd();
+      if (!line.trim()) continue;
+
+      // Flask writes request access logs to stderr by default; avoid labeling them as errors.
+      if (kind === 'stderr') {
+        const match = line.match(accessLogRe);
+        if (match) {
+          const status = Number(match[1]);
+          if (status >= 500) console.error(`Backend Error: ${line}`);
+          else if (status >= 400) console.warn(`Backend Warn: ${line}`);
+          else console.log(`Backend: ${line}`);
+          continue;
+        }
+
+        if (severeRe.test(line)) {
+          console.error(`Backend Error: ${line}`);
+        } else {
+          console.warn(`Backend Warn: ${line}`);
+        }
+        continue;
+      }
+
+      console.log(`Backend: ${line}`);
+    }
+  });
+
+  stream.on('end', () => {
+    const line = pending.trim();
+    if (!line) return;
+    if (kind === 'stderr') console.warn(`Backend Warn: ${line}`);
+    else console.log(`Backend: ${line}`);
+    pending = '';
+  });
+}
+
 function createPythonBackend() {
   const isWin = process.platform === 'win32';
   
@@ -29,13 +75,8 @@ function createPythonBackend() {
     });
   }
 
-  pythonProcess.stdout.on('data', (data) => {
-    console.log(`Backend: ${data}`);
-  });
-
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Backend Error: ${data}`);
-  });
+  pipeBackendOutput(pythonProcess.stdout, 'stdout');
+  pipeBackendOutput(pythonProcess.stderr, 'stderr');
 
   pythonProcess.on('close', (code) => {
     console.log(`Backend process exited with code ${code}`);
