@@ -376,7 +376,7 @@
                             <button id="favoriteBtn" onclick="toggleFavoriteCurrent()" class="flex items-center gap-2 border border-outline-variant/30 hover:bg-white/5 px-6 py-3 rounded-xl font-bold transition-all">
                                 <span class="material-symbols-outlined text-primary">heart_plus</span> Favorite
                             </button>
-                            <button onclick="readLatestChapter()" class="flex-1 bg-primary text-on-primary px-6 py-3 rounded-xl font-black hover:scale-[1.02] active:scale-95 transition-all">
+                            <button id="startReadingBtn" onclick="readLatestChapter()" class="flex-1 bg-primary text-on-primary px-6 py-3 rounded-xl font-black hover:scale-[1.02] active:scale-95 transition-all">
                                 Read Latest
                             </button>
                         </div>
@@ -566,9 +566,13 @@
             const selector = document.getElementById('sourceSelect');
             if (selector) {
                 if (type === 'books') {
-                    selector.innerHTML = '<option value="google-books">Source: Google Books</option><option value="gutenberg">Source: Gutenberg</option><option value="openlibrary">Source: OpenLibrary</option><option value="internet-archive">Source: Internet Archive</option><option value="wikisource">Source: Wikisource</option>';
+                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="google-books">Source: Google Books</option><option value="gutenberg">Source: Gutenberg</option><option value="openlibrary">Source: OpenLibrary</option><option value="internet-archive">Source: Internet Archive</option><option value="wikisource">Source: Wikisource</option>';
+                    const saved = localStorage.getItem('tools63_book_source') || 'all';
+                    selector.value = saved;
                 } else {
-                    selector.innerHTML = '<option value="mangadex">Source: MangaDex</option><option value="mangakakalot">Source: Kakalot</option><option value="mangasee123">Source: MangaSee</option>';
+                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="mangadex">Source: MangaDex</option><option value="mangakakalot">Source: Kakalot</option><option value="mangasee123">Source: MangaSee</option>';
+                    const saved = readStorage(STORAGE_KEYS.mangaSource, 'all');
+                    selector.value = saved;
                 }
             }
             loadTrending();
@@ -640,7 +644,7 @@
             const provider = String(m.provider || (currentContentType === 'books' ? 'google-books' : 'mangadex')).toLowerCase();
             const sub = currentContentType === 'books' ? (m.authors || []).join(', ') : (m.status || 'Unknown');
             return `
-                <div class="group cursor-pointer manga-card-hover transition-all duration-300" onclick="${currentContentType === 'books' ? `openBookInfo('${m.id}')` : `loadMangaInfo('${m.id}')`}">
+                <div class="group cursor-pointer manga-card-hover transition-all duration-300" onclick="${currentContentType === 'books' ? `openBookInfo('${m.id}', '${provider}')` : `loadMangaInfo('${m.id}')`}">
                     <div class="relative aspect-[2/3] rounded-2xl overflow-hidden mb-4 bg-surface-container-low shadow-lg">
                         <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${m.cover || 'placeholder.png'}" onerror="this.src='placeholder.png'" alt="${sanitize(m.title)}" loading="lazy"/>
                         <div class="absolute top-3 left-3 flex gap-2">
@@ -996,7 +1000,7 @@
             section.style.display = 'block';
             container.innerHTML = history.map(h => {
                 const isBook = h.type === 'book';
-                const resumeFn = isBook ? `openBookInfo('${h.mangaId}')` : `resumeHistory('${h.mangaId}', '${h.chapterId}', ${h.lastPage})`;
+                const resumeFn = isBook ? `openBookInfo('${h.mangaId}', '${h.provider || ''}')` : `resumeHistory('${h.mangaId}', '${h.chapterId}', ${h.lastPage})`;
                 return `
                 <div class="flex-none w-72 snap-start group cursor-pointer" onclick="${resumeFn}">
                     <div class="relative aspect-[2/3] rounded-3xl overflow-hidden mb-4 bg-surface-container-high transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-3xl border border-white/5">
@@ -1037,8 +1041,11 @@
             }
             
             empty.classList.add('hidden');
-            grid.innerHTML = history.map(h => `
-                <div class="glass p-4 rounded-3xl flex gap-4 hover:bg-white/5 transition-all cursor-pointer group" onclick="resumeHistory('${h.mangaId}', '${h.chapterId}')">
+            grid.innerHTML = history.map(h => {
+                const isBook = h.type === 'book';
+                const resumeFn = isBook ? `openBookInfo('${h.mangaId}', '${h.provider || ''}')` : `resumeHistory('${h.mangaId}', '${h.chapterId}')`;
+                return `
+                <div class="glass p-4 rounded-3xl flex gap-4 hover:bg-white/5 transition-all cursor-pointer group" onclick="${resumeFn}">
                     <img src="${h.cover || 'placeholder.png'}" onerror="this.src='placeholder.png'" class="w-20 h-28 rounded-2xl object-cover shadow-lg group-hover:scale-105 transition-transform"/>
                     <div class="flex-1 min-w-0 flex flex-col justify-center">
                         <h4 class="font-black font-headline text-lg truncate mb-1">${sanitize(h.mangaTitle)}</h4>
@@ -1049,7 +1056,7 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         async function resumeHistory(mangaId, chapterId, targetPage = 1) {
@@ -1126,28 +1133,32 @@
             }
         }
 
-        async function openBookInfo(id) {
-            const source = document.getElementById('sourceSelect').value;
+           async function openBookInfo(id, forcedSource) {
+            const source = forcedSource || document.getElementById('sourceSelect').value || 'google-books';
             openDetailsModal();
             resetDetailsPanel();
             
             try {
                 const r = await fetch(`${API}/books/info/${id}?source=${source}`);
                 const d = await r.json();
-                currentMangaId = d.id;
-                currentMangaInfo = d;
                 
-                document.getElementById('detailTitle').textContent = d.title;
-                document.getElementById('detailDesc').innerHTML = d.description || 'No description available for this book.';
                 document.getElementById('detailCover').src = d.cover || 'placeholder.png';
-                document.getElementById('detailStatus').textContent = 'BOOK';
-                document.getElementById('detailMeta').textContent = `${(d.authors || []).join(', ')}`;
+                document.getElementById('detailTitle').textContent = d.title;
+                document.getElementById('detailStatus').textContent = (d.authors || []).join(', ');
+                document.getElementById('detailDesc').textContent = d.description || 'No description available.';
                 document.getElementById('chapterList').innerHTML = ''; 
                 document.getElementById('tagWrap').innerHTML = (d.subjects || []).slice(0, 5).map(s => `<span class="bg-primary/10 text-primary px-2 py-1 rounded-md text-[9px] uppercase font-bold">${s}</span>`).join('');
                 
-                const readBtn = document.getElementById('startReadingBtn') || document.querySelector('button[onclick="readLatestChapter()"]');
-                readBtn.onclick = () => openBookReader(d);
-                readBtn.textContent = ['gutenberg', 'internet-archive', 'wikisource'].includes(d.provider) ? 'Read Full Text' : 'Read Preview';
+                const readBtn = document.getElementById('startReadingBtn');
+                readBtn.onclick = () => openBookReader({
+                    id,
+                    title: d.title,
+                    cover: d.cover,
+                    authors: d.authors,
+                    provider: d.provider || source
+                });
+                
+                readBtn.textContent = ['gutenberg', 'internet-archive', 'wikisource'].includes(d.provider || source) ? 'Read Full Text' : 'Read Preview';
                 
                 setFavoriteButtonState();
             } catch(e) { console.error(e); }
@@ -1239,6 +1250,7 @@
                         mangaTitle: book.title,
                         cover: book.cover,
                         authors: (book.authors || []).join(', '),
+                        provider: book.provider,
                         lang: 'EN',
                         updatedAt: Date.now()
                     });

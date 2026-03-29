@@ -1,4 +1,4 @@
-import os, threading, platform, subprocess, shutil, time, re, signal, sys, hashlib, base64, io, socket
+import os, threading, concurrent.futures, platform, subprocess, shutil, time, re, signal, sys, hashlib, base64, io, socket
 from urllib.parse import urlparse
 
 # Forçar UTF-8 no stdout para evitar erro de encoding no Windows (emojis/caracteres especiais)
@@ -3644,7 +3644,35 @@ def _beautify_text(text):
 
 @app.route('/books/search/<query>')
 def api_books_search(query):
-    source = request.args.get('source', 'google-books')
+    source = request.args.get('source', 'all')
+    limit = int(request.args.get('limit', 20))
+    
+    if source == 'all':
+        scrapers = [
+            GutenbergScraper,
+            InternetArchiveScraper,
+            WikisourceScraper,
+            OpenLibraryScraper,
+            BookScraper # Google Books
+        ]
+        all_results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(s.search, query, limit//2) for s in scrapers]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    all_results.extend(future.result() or [])
+                except Exception as e: print(f"Search Error: {e}")
+        
+        # Deduplicate and sort by relevance (simple title match for now)
+        seen = set()
+        merged = []
+        for r in all_results:
+            uid = f"{r.get('provider')}-{r.get('id')}"
+            if uid not in seen:
+                merged.append(r)
+                seen.add(uid)
+        return jsonify({'results': merged[:limit]})
+
     if source == 'gutenberg':
         return jsonify({'results': GutenbergScraper.search(query)})
     if source == 'openlibrary':
@@ -3700,7 +3728,19 @@ def api_books_content(book_id):
 
 @app.route('/books/trending')
 def api_books_trending():
-    source = request.args.get('source', 'google-books')
+    source = request.args.get('source', 'all')
+    if source == 'all':
+        # Quick trending mix
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            f1 = executor.submit(GutenbergScraper.search, 'popular', 6)
+            f2 = executor.submit(BookScraper.search, 'subject:fiction', 10)
+            f3 = executor.submit(OpenLibraryScraper.search, 'popular', 6)
+            for f in [f1, f2, f3]:
+                try: results.extend(f.result() or [])
+                except: pass
+        return jsonify({'results': results})
+
     if source == 'gutenberg':
         return jsonify({'results': GutenbergScraper.search('popular')})
     if source == 'openlibrary':
