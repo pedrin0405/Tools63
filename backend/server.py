@@ -841,7 +841,7 @@ class MangaDexScraper:
         cover_url = f"https://uploads.mangadex.org/covers/{manga_id}/{cover_file}.512.jpg" if cover_file else ''
 
         return {
-            'id': manga_id,
+            'id': f"mangadex:{manga_id}",
             'title': title or 'Sem titulo',
             'description': description or 'Sem descricao disponivel.',
             'status': attrs.get('status', 'unknown'),
@@ -4037,13 +4037,19 @@ def manga_trending():
             provider_unavailable = True
     else:
         # Parallel optimized trending for 'all'
-        def run_trending(scraper_fn, lim):
-            try: return scraper_fn(limit=lim)
-            except: return []
+        def run_trending(name, scraper_fn, lim):
+            try:
+                print(f">>> [Trending] Starting {name} trending", flush=True)
+                res = scraper_fn(limit=lim)
+                print(f">>> [Trending] {name} results: {len(res)}", flush=True)
+                return res
+            except Exception as e:
+                print(f"!!! [Trending] {name} error: {e}", flush=True)
+                return []
 
         futures = [
-            executor.submit(run_trending, MangaDexScraper.trending, limit),
-            executor.submit(run_trending, MangaPlusScraper.trending, limit)
+            executor.submit(run_trending, "MangaDex", MangaDexScraper.trending, limit),
+            executor.submit(run_trending, "MangaPlus", MangaPlusScraper.trending, limit)
         ]
         
         # Collect results from all futures
@@ -4062,13 +4068,19 @@ def manga_trending():
         seen = set()
         deduped = []
         for item in merged:
-            key = normalize_title(item.get('title') or '')
-            if not key or key in seen:
+            # Use same deduplication as search: title + provider
+            title_key = normalize_title(item.get('title') or '')
+            p_key = item.get('provider', 'unknown')
+            unique_key = f"{title_key}_{p_key}"
+            
+            if not title_key or unique_key in seen:
                 continue
-            seen.add(key)
+            seen.add(unique_key)
             deduped.append(item)
             if len(deduped) >= limit:
                 break
+        
+        print(f">>> [Trending] Final merged count: {len(deduped)}", flush=True)
         results = deduped
         resolved_provider = 'all'
 

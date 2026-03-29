@@ -192,7 +192,7 @@
     <!-- Top Navigation Bar -->
     <nav class="fixed top-0 w-full flex justify-between items-center px-6 py-4 z-50 bg-[#0e0e0e]/80 backdrop-blur-xl">
         <div class="flex items-center gap-12">
-            <span class="text-2xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent font-headline tracking-tight cursor-pointer" onclick="switchTab('home')">Media<span class="italic text-white">Hub</span></span>
+            <span id="logoText" class="text-2xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent font-headline tracking-tight cursor-pointer" onclick="switchTab('home')">Manga<span class="italic text-white">Hub</span></span>
             <div class="hidden md:flex items-center gap-6 font-headline font-bold tracking-tight">
                 <div class="flex items-center bg-surface-variant/50 rounded-full px-2 py-1 gap-1 border border-white/5">
                     <button id="type-manga" onclick="setContentType('manga')" class="px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary">Manga</button>
@@ -555,6 +555,24 @@
             currentContentType = type;
             const mBtn = document.getElementById('type-manga');
             const bBtn = document.getElementById('type-books');
+            
+            // Update Visual Labels and Descriptions
+            const heroTitle = document.getElementById('heroTitle');
+            const heroDesc = document.getElementById('heroDesc');
+            const logoText = document.getElementById('logoText');
+            
+            if (type === 'books') {
+                if (heroTitle) heroTitle.textContent = 'Book Hub';
+                if (heroDesc) heroDesc.textContent = 'Explore a vast library of classic literature, modern novels, and historical texts. Your journey through words starts here.';
+                if (logoText) logoText.innerHTML = 'Book<span class="italic text-white">Hub</span>';
+                document.title = 'Book Hub - Your Digital Library';
+            } else {
+                if (heroTitle) heroTitle.textContent = 'Manga Hub';
+                if (heroDesc) heroDesc.textContent = 'Discover your next favorite story. Fast, clean, and elegant manga reading experience.';
+                if (logoText) logoText.innerHTML = 'Manga<span class="italic text-white">Hub</span>';
+                document.title = 'Manga Hub - The Cinematic Archive';
+            }
+
             if (mBtn) mBtn.className = type === 'manga' ? 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary' : 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white';
             if (bBtn) bBtn.className = type === 'books' ? 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary' : 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white';
             
@@ -1456,8 +1474,8 @@
         const initialType = localStorage.getItem('tools63_initial_type') || 'manga';
         setContentType(initialType);
         
-        const savedTab = localStorage.getItem('tools63_manga_tab') || 'home';
-        switchTab(savedTab);
+        // Always start on home (Browse) instead of restoring previous tab
+        switchTab('home');
         renderHistoryHome();
 
         // Global scroll listener for book progress
