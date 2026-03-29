@@ -191,41 +191,53 @@
 
     <!-- Top Navigation Bar -->
     <nav class="fixed top-0 w-full flex justify-between items-center px-6 py-4 z-50 bg-[#0e0e0e]/80 backdrop-blur-xl">
-        <div class="flex items-center gap-12">
-            <span id="logoText" class="text-2xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent font-headline tracking-tight cursor-pointer" onclick="switchTab('home')">Manga<span class="italic text-white">Hub</span></span>
-            <div class="hidden md:flex items-center gap-6 font-headline font-bold tracking-tight">
-                <div class="flex items-center bg-surface-variant/50 rounded-full px-2 py-1 gap-1 border border-white/5">
-                    <button id="type-manga" onclick="setContentType('manga')" class="px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary">Manga</button>
-                    <button id="type-books" onclick="setContentType('books')" class="px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white">Books</button>
+        <div class="flex items-center gap-10">
+            <!-- Hub Switcher (Integrated into Logo) -->
+            <div class="relative group">
+                <div class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity pr-6 border-r border-white/10" onclick="switchTab('home')">
+                    <span id="logoText" class="text-2xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent font-headline tracking-tight">Manga<span class="italic text-white">Hub</span></span>
+                    <span class="material-symbols-outlined text-on-surface-variant text-sm group-hover:rotate-180 transition-transform">expand_more</span>
                 </div>
-                <div class="w-[1px] h-4 bg-white/10"></div>
+                
+                <!-- Dropdown Menu -->
+                <div id="hubMenu" class="absolute top-full left-0 mt-3 w-56 glass glass-apple rounded-2xl shadow-2xl py-2 hidden group-hover:block z-[100] border border-white/10 animate-in fade-in slide-in-from-top-2 duration-200">
+                     <div onclick="setContentType('manga')" class="px-4 py-3 hover:bg-primary/10 transition-colors flex items-center justify-between cursor-pointer group/item">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary group-hover/item:scale-110 transition-transform">auto_stories</span>
+                            <span class="font-headline font-bold text-sm">Manga Hub</span>
+                        </div>
+                        <span id="hubCheck-manga" class="material-symbols-outlined text-primary text-sm font-fill-1">check_circle</span>
+                     </div>
+                     <div onclick="setContentType('books')" class="px-4 py-3 hover:bg-secondary/10 transition-colors flex items-center justify-between cursor-pointer group/item">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-secondary group-hover/item:scale-110 transition-transform">menu_book</span>
+                            <span class="font-headline font-bold text-sm">Book Hub</span>
+                        </div>
+                        <span id="hubCheck-books" class="material-symbols-outlined text-secondary text-sm hidden font-fill-1">check_circle</span>
+                     </div>
+                </div>
+            </div>
+
             <div class="hidden md:flex items-center gap-8 font-headline font-bold tracking-tight">
                 <a class="tab-btn active cursor-pointer" data-tab="home" onclick="switchTab('home')">Browse</a>
                 <a class="tab-btn text-gray-400 hover:text-white transition-colors cursor-pointer" data-tab="favorites" onclick="switchTab('favorites')">Library</a>
                 <a class="tab-btn text-gray-400 hover:text-white transition-colors cursor-pointer" data-tab="history" onclick="switchTab('history')">History</a>
             </div>
         </div>
-        <div class="flex items-center gap-6">
-            <div class="hidden lg:flex items-center bg-surface-variant rounded-md px-4 py-2 w-64 border border-outline-variant/10 focus-within:border-primary/50 transition-all">
-                <span class="material-symbols-outlined text-on-surface-variant text-xl mr-2">search</span>
-                <input id="searchInput" class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-on-surface-variant" placeholder="Search titles..." type="text" onkeydown="if(event.key==='Enter') searchManga()"/>
+        <div class="flex items-center gap-4">
+            <!-- Search Container -->
+            <div class="hidden lg:flex items-center bg-surface-variant/40 rounded-full px-4 py-2 w-72 border border-white/5 focus-within:border-primary/40 focus-within:bg-surface-variant/60 transition-all backdrop-blur-md">
+                <span class="material-symbols-outlined text-on-surface-variant text-sm mr-2">search</span>
+                <input id="searchInput" class="bg-transparent border-none focus:ring-0 text-xs w-full placeholder:text-on-surface-variant/50" placeholder="Search titles..." type="text" onkeydown="if(event.key==='Enter') searchManga()"/>
             </div>
             
-            <!-- Source Selector -->
+            <!-- Source Selector Container -->
             <div class="hidden sm:block">
-                <select id="sourceSelect" class="bg-surface-variant border-none rounded-md px-3 py-1.5 text-xs font-bold text-on-surface-variant focus:ring-1 focus:ring-primary cursor-pointer" onchange="onSourceChange()">
-                    <option value="all">Source: All Providers</option>
-                    <option value="mangaplus">Source: MangaPlus (Official)</option>
-                    <option value="mangadex">Source: MangaDex</option>
+                <select id="sourceSelect" class="bg-surface-variant/40 border border-white/5 rounded-full px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant focus:ring-1 focus:ring-primary/40 focus:bg-surface-variant/60 transition-all backdrop-blur-md cursor-pointer appearance-none hover:border-white/10" onchange="onSourceChange()">
+                    <option value="all">All Providers</option>
+                    <option value="mangaplus">MangaPlus (Official)</option>
+                    <option value="mangadex">MangaDex</option>
                 </select>
-            </div>
-
-            <button class="hover:bg-white/5 transition-all duration-300 p-2 rounded-full relative">
-                <span class="material-symbols-outlined text-on-surface">notifications</span>
-                <span class="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full"></span>
-            </button>
-            <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-outline-variant/20 hover:scale-95 active:scale-90 transition-transform cursor-pointer">
-                <img alt="User Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1Ns4bNNUC8zLN7YpBnp0v34gU8XvSu6d4wkkRhvfqYivjx87tQ7A_xn9ZLaNPhdPz8YgekINFmItR8oRjuo7dlHsT6FNdjTzpLqdqn6jPUBox3BqAswHFGJuPaOedJdiARHZ8ePGhuS-GeyX7mvEFLb-U38bGsSbI6VpRiU-wSE1oILePR7cVpMiT0RkTgKGId9K5EDwRDsHR9ULrvict7vRFnEAbk9TpCYqt3uksvCpMKTt4bbSUJPNX1DmILgmGINgtEjwrcFnx"/>
             </div>
         </div>
     </nav>
@@ -553,39 +565,40 @@
 
         function setContentType(type) {
             currentContentType = type;
-            const mBtn = document.getElementById('type-manga');
-            const bBtn = document.getElementById('type-books');
             
             // Update Visual Labels and Descriptions
             const heroTitle = document.getElementById('heroTitle');
             const heroDesc = document.getElementById('heroDesc');
             const logoText = document.getElementById('logoText');
             
+            // Update Checkmarks in Dropdown
+            const checkM = document.getElementById('hubCheck-manga');
+            const checkB = document.getElementById('hubCheck-books');
+
             if (type === 'books') {
                 if (heroTitle) heroTitle.textContent = 'Book Hub';
                 if (heroDesc) heroDesc.textContent = 'Explore a vast library of classic literature, modern novels, and historical texts. Your journey through words starts here.';
                 if (logoText) logoText.innerHTML = 'Book<span class="italic text-white">Hub</span>';
                 document.title = 'Book Hub - Your Digital Library';
+                if (checkM) checkM.classList.add('hidden');
+                if (checkB) checkB.classList.remove('hidden');
             } else {
                 if (heroTitle) heroTitle.textContent = 'Manga Hub';
                 if (heroDesc) heroDesc.textContent = 'Discover your next favorite story. Fast, clean, and elegant manga reading experience.';
                 if (logoText) logoText.innerHTML = 'Manga<span class="italic text-white">Hub</span>';
                 document.title = 'Manga Hub - The Cinematic Archive';
+                if (checkM) checkM.classList.remove('hidden');
+                if (checkB) checkB.classList.add('hidden');
             }
-
-            if (mBtn) mBtn.className = type === 'manga' ? 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary' : 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white';
-            if (bBtn) bBtn.className = type === 'books' ? 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all bg-primary text-on-primary' : 'px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest transition-all text-on-surface-variant hover:text-white';
             
             const selector = document.getElementById('sourceSelect');
             if (selector) {
                 if (type === 'books') {
-                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="google-books">Source: Google Books</option><option value="gutenberg">Source: Gutenberg</option><option value="internet-archive">Source: Internet Archive</option><option value="wikisource">Source: Wikisource</option>';
-                    const saved = localStorage.getItem('tools63_book_source') || 'all';
-                    selector.value = saved;
+                    selector.innerHTML = '<option value="all">All Sources</option><option value="google-books">Google Books</option><option value="gutenberg">Gutenberg</option><option value="internet-archive">Internet Archive</option><option value="wikisource">Wikisource</option>';
+                    selector.value = 'all'; // Default to All
                 } else {
-                    selector.innerHTML = '<option value="all">Source: All Sources</option><option value="mangaplus">Source: MangaPlus (Official)</option><option value="mangadex">Source: MangaDex</option>';
-                    const saved = readStorage(STORAGE_KEYS.mangaSource, 'all');
-                    selector.value = ['mangaplus', 'mangadex', 'all'].includes(saved) ? saved : 'all';
+                    selector.innerHTML = '<option value="all">All Providers</option><option value="mangaplus">MangaPlus (Official)</option><option value="mangadex">MangaDex</option>';
+                    selector.value = 'all'; // Default to All Providers
                 }
             }
             loadTrending();
@@ -1038,10 +1051,14 @@
         function renderHistoryHome() {
             const container = document.getElementById('historyGrid');
             const section = document.getElementById('historySection');
-            const history = readStorage(STORAGE_KEYS.history, []);
+            let history = readStorage(STORAGE_KEYS.history, []);
             
+            // Filter by context
+            const targetType = currentContentType === 'books' ? 'book' : 'manga';
+            history = history.filter(h => h.type === targetType).slice(0, 10);
+
             if (!history.length) {
-                section.style.display = 'none';
+                if (section) section.style.display = 'none';
                 return;
             }
             
@@ -1080,15 +1097,19 @@
         function renderHistoryTab() {
             const grid = document.getElementById('historyGridTab');
             const empty = document.getElementById('historyEmptyDetail');
-            const history = readStorage(STORAGE_KEYS.history, []);
+            let history = readStorage(STORAGE_KEYS.history, []);
             
+            // Filter by context
+            const targetType = currentContentType === 'books' ? 'book' : 'manga';
+            history = history.filter(h => h.type === targetType);
+
             if (!history.length) {
-                grid.innerHTML = '';
-                empty.classList.remove('hidden');
+                if (grid) grid.innerHTML = '';
+                if (empty) empty.classList.remove('hidden');
                 return;
             }
             
-            empty.classList.add('hidden');
+            if (empty) empty.classList.add('hidden');
             grid.innerHTML = history.map(h => {
                 const isBook = h.type === 'book';
                 const resumeFn = isBook ? `openBookInfo('${h.mangaId}', '${h.provider || ''}')` : `resumeHistory('${h.mangaId}', '${h.chapterId}')`;
