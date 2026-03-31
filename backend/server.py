@@ -4316,7 +4316,9 @@ def api_books_info(book_id):
     # Metadata Support Enrichment
     if source in ('gutenberg', 'wikisource', 'internet-archive'):
         if not res.get('description') or len(res.get('description', '')) < 100 or not res.get('cover'):
-            support = OpenLibraryScraper.get_metadata_enrichment(res.get('title'), res.get('authors', [None])[0])
+            authors = res.get('authors')
+            author = authors[0] if authors and isinstance(authors, list) and len(authors) > 0 else None
+            support = OpenLibraryScraper.get_metadata_enrichment(res.get('title'), author)
             if support:
                 if not res.get('description') or len(res.get('description', '')) < 100:
                     res['description'] = support.get('description') or res.get('description')
