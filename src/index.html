@@ -205,10 +205,10 @@
                 <div class="update-dot"></div>
             </div>
 
-            <div class="user-profile">
+            <div class="user-profile" onclick="loadTool('profile')" style="cursor:pointer;">
                 <div class="user-avatar"></div>
                 <div style="flex: 1;">
-                    <p style="font-size: 11px; font-weight: 800; color: #fff;">Usuário Tools</p>
+                    <p style="font-size: 11px; font-weight: 800; color: #fff;" id="sidebar-user-name">Usuário Tools</p>
                    <p style="font-size: 9px; font-weight: 600; color: #94a3b8;">Plano Premium</p>
                 </div>
                 <i class="fas fa-chevron-right" style="font-size: 10px; color: #475569;"></i>
@@ -285,6 +285,9 @@
             } else if (toolName === 'books') {
                 localStorage.setItem('tools63_initial_type', 'books');
                 iframe.src = 'tools/manga/index.html';
+            } else if (toolName === 'profile') {
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                iframe.src = 'tools/profile/index.html';
             }
         }
 

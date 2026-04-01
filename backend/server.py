@@ -507,6 +507,195 @@ def dlt():
 def get_file(filename):
     return send_from_directory(DOWNLOAD_DIR, filename)
 
+# ─── Profile Management ────────────────────────────────────────────────
+PROFILE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'profile.json')
+
+def _load_profile():
+    defaults = {
+        'name': 'Usuário Tools',
+        'email': '',
+        'bio': '',
+        'plan': 'Premium',
+        'avatar_seed': 'tools63',
+        'theme': 'dark',
+        'language': 'pt-BR',
+        'notifications': True,
+        'auto_update': True,
+        'download_path': DOWNLOAD_DIR,
+        'max_concurrent': MAX_CONCURRENT,
+        'preferred_video_format': 'mp4',
+        'preferred_audio_format': 'mp3',
+        'preferred_resolution': '1080p',
+        'created_at': time.strftime('%Y-%m-%d'),
+    }
+    try:
+        if os.path.exists(PROFILE_FILE):
+            with open(PROFILE_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                defaults.update(data)
+    except: pass
+    return defaults
+
+def _save_profile(data):
+    try:
+        with open(PROFILE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        return True
+    except: return False
+
+@app.route('/profile', methods=['GET'])
+def get_profile():
+    return jsonify(_load_profile())
+
+@app.route('/profile', methods=['POST'])
+def save_profile():
+    data = _load_profile()
+    updates = request.json or {}
+    safe_fields = ['name','email','bio','avatar_seed','theme','language',
+                   'notifications','auto_update','preferred_video_format',
+                   'preferred_audio_format','preferred_resolution','max_concurrent']
+    for k in safe_fields:
+        if k in updates:
+            data[k] = updates[k]
+    _save_profile(data)
+    return jsonify({'ok': True, 'profile': data})
+
+@app.route('/profile/media', methods=['GET'])
+def profile_media():
+    """Lista todas as mídias baixadas com metadados detalhados."""
+    media = []
+    scan_dirs = {
+        DOWNLOAD_DIR: 'youtube',
+    }
+    # Scan download directory for all files
+    cache_folders = {'anime_dub_cache','anime_subtitle_cache','book_info_cache','manga_info_cache','manga_translated_pages'}
+    if os.path.exists(DOWNLOAD_DIR):
+        for f in os.listdir(DOWNLOAD_DIR):
+            fp = os.path.join(DOWNLOAD_DIR, f)
+            if os.path.isfile(fp) and not f.startswith('.'):
+                ext = f.rsplit('.', 1)[-1].lower() if '.' in f else ''
+                sz = os.path.getsize(fp)
+                mt = os.path.getmtime(fp)
+                # Categorizar
+                cat = 'video'
+                if ext in ('mp3','m4a','wav','opus','ogg','flac','aac'): cat = 'audio'
+                elif ext in ('webp','jpg','jpeg','png','gif','bmp','svg'): cat = 'image'
+                elif ext in ('srt','vtt','ass','sub'): cat = 'subtitle'
+                elif ext in ('pdf','epub','mobi','txt'): cat = 'document'
+                media.append({
+                    'name': f,
+                    'path': fp,
+                    'ext': ext.upper(),
+                    'size': sz,
+                    'size_str': f'{sz/1024/1024:.1f} MB' if sz > 1024*1024 else f'{sz/1024:.0f} KB',
+                    'modified': mt,
+                    'modified_str': time.strftime('%d/%m/%Y %H:%M', time.localtime(mt)),
+                    'category': cat,
+                    'source': 'youtube'
+                })
+    # Scan tool-specific download dirs
+    for tool_dir_name in ['anime','manga','media','movie-web','snapper']:
+        tool_download = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'tools', tool_dir_name, 'downloads')
+        if os.path.exists(tool_download):
+            for f in os.listdir(tool_download):
+                fp = os.path.join(tool_download, f)
+                if os.path.isfile(fp) and not f.startswith('.'):
+                    ext = f.rsplit('.', 1)[-1].lower() if '.' in f else ''
+                    sz = os.path.getsize(fp)
+                    mt = os.path.getmtime(fp)
+                    media.append({
+                        'name': f, 'path': fp, 'ext': ext.upper(),
+                        'size': sz, 'size_str': f'{sz/1024/1024:.1f} MB' if sz > 1024*1024 else f'{sz/1024:.0f} KB',
+                        'modified': mt, 'modified_str': time.strftime('%d/%m/%Y %H:%M', time.localtime(mt)),
+                        'category': 'video' if ext in ('mp4','mkv','webm','avi','mov') else 'audio' if ext in ('mp3','m4a','wav','opus') else 'image' if ext in ('webp','jpg','png') else 'other',
+                        'source': tool_dir_name
+                    })
+    media.sort(key=lambda x: x['modified'], reverse=True)
+    return jsonify({'media': media, 'total': len(media)})
+
+@app.route('/profile/storage', methods=['GET'])
+def profile_storage():
+    """Retorna breakdown de armazenamento por categoria."""
+    storage = {
+        'youtube': {'count': 0, 'size': 0},
+        'anime': {'count': 0, 'size': 0},
+        'manga': {'count': 0, 'size': 0},
+        'movies': {'count': 0, 'size': 0},
+        'snapper': {'count': 0, 'size': 0},
+        'cache': {'count': 0, 'size': 0},
+    }
+    total_size = 0
+    cache_names = {'anime_dub_cache','anime_subtitle_cache','book_info_cache','manga_info_cache','manga_translated_pages'}
+    
+    def scan_recursive(dirpath):
+        total = 0
+        count = 0
+        if os.path.exists(dirpath):
+            for root, dirs, files in os.walk(dirpath):
+                for f in files:
+                    if f.startswith('.'): continue
+                    fp = os.path.join(root, f)
+                    try:
+                        s = os.path.getsize(fp)
+                        total += s
+                        count += 1
+                    except: pass
+        return count, total
+
+    # Main downloads
+    if os.path.exists(DOWNLOAD_DIR):
+        for f in os.listdir(DOWNLOAD_DIR):
+            fp = os.path.join(DOWNLOAD_DIR, f)
+            if os.path.isdir(fp):
+                if f in cache_names:
+                    c, s = scan_recursive(fp)
+                    storage['cache']['count'] += c
+                    storage['cache']['size'] += s
+                    total_size += s
+            elif os.path.isfile(fp) and not f.startswith('.'):
+                sz = os.path.getsize(fp)
+                storage['youtube']['count'] += 1
+                storage['youtube']['size'] += sz
+                total_size += sz
+    
+    # Tool dirs
+    for tool, key in [('anime','anime'),('manga','manga'),('movie-web','movies'),('snapper','snapper')]:
+        tool_dl = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'tools', tool, 'downloads')
+        c, s = scan_recursive(tool_dl)
+        storage[key]['count'] += c
+        storage[key]['size'] += s
+        total_size += s
+    
+    # Format sizes
+    def fmt_size(b):
+        if b > 1024**3: return f'{b/1024**3:.1f} GB'
+        if b > 1024**2: return f'{b/1024**2:.1f} MB'
+        return f'{b/1024:.0f} KB'
+    
+    result = {}
+    for k, v in storage.items():
+        result[k] = {'count': v['count'], 'size': v['size'], 'size_str': fmt_size(v['size']),
+                      'percentage': round((v['size']/total_size*100) if total_size > 0 else 0, 1)}
+    
+    return jsonify({'categories': result, 'total_size': total_size, 'total_str': fmt_size(total_size)})
+
+@app.route('/profile/clear-cache', methods=['POST'])
+def clear_cache():
+    """Limpa diretórios de cache."""
+    cleared = 0
+    cache_dirs = ['anime_dub_cache','anime_subtitle_cache','book_info_cache','manga_info_cache','manga_translated_pages']
+    for d in cache_dirs:
+        dp = os.path.join(DOWNLOAD_DIR, d)
+        if os.path.exists(dp):
+            for f in os.listdir(dp):
+                fp = os.path.join(dp, f)
+                try:
+                    if os.path.isfile(fp): os.remove(fp); cleared += 1
+                    elif os.path.isdir(fp): shutil.rmtree(fp); cleared += 1
+                except: pass
+    return jsonify({'ok': True, 'cleared': cleared})
+
+
 ANIME_API = "https://consumet-api-smoky.vercel.app"
 MANGADEX_API = "https://api.mangadex.org"
 

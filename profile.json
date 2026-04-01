@@ -1,0 +1,17 @@
+{
+  "name": "Pedro A",
+  "email": "",
+  "bio": "",
+  "plan": "Premium",
+  "avatar_seed": "maria",
+  "theme": "dark",
+  "language": "pt-BR",
+  "notifications": true,
+  "auto_update": true,
+  "download_path": "/Users/noobmaster/Documents/Projetos Pessoais/Tools63/downloads",
+  "max_concurrent": 2,
+  "preferred_video_format": "mp4",
+  "preferred_audio_format": "mp3",
+  "preferred_resolution": "4k",
+  "created_at": "2026-04-01"
+}
