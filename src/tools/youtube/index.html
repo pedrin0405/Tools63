@@ -32,6 +32,13 @@
 
         .badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; padding: 3px 10px; font-size: 10px; font-weight: 700; color: #e2e8f0; }
         .badge-violet { background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); color: #c4b5fd; }
+        
+        .shimmer { background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%); background-size: 200% 100%; animation: shimmer 2s infinite; }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+        .progress-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
 
         .fade-up { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
@@ -50,7 +57,38 @@
         .toggle-input:checked + .toggle-switch::after { left: 18px; }
 
         .platform-icon { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        /* Range Slider Styles */
+        .range-container { position: relative; width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 10px; margin: 25px 0 15px; }
+        .range-selected { position: absolute; height: 100%; background: linear-gradient(90deg, #8b5cf6, #ec4899); border-radius: 10px; transition: all 0.1s; }
+        .range-input { position: absolute; top: -7px; width: 100%; height: 20px; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; margin:0; }
+        .range-input::-webkit-slider-thumb { height: 18px; width: 18px; border-radius: 50%; background: #fff; border: 3px solid #8b5cf6; pointer-events: auto; -webkit-appearance: none; appearance: none; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .range-input::-moz-range-thumb { height: 18px; width: 18px; border-radius: 50%; background: #fff; border: 3px solid #8b5cf6; pointer-events: auto; cursor: pointer; }
+        
+        .vid-container { position: relative; width: 100%; height: 100%; background: #000; border-radius: 10px; overflow: hidden; }
+        #player { position: absolute; top:0; left:0; width:100%; height:100%; }
+        .glass-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .glass-btn:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+
+        @keyframes slide-up {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
     </style>
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
     <div style="position:relative;z-index:1;" class="flex flex-col items-center">
@@ -61,8 +99,8 @@
                 <div>
                     <h1 class="text-2xl font-black text-white tracking-tight">Youtube Downloader</h1>
                     <div id="stats-bar" class="flex gap-4 mt-1">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><span id="stats-count">0</span> Arquivos</span>
-                        <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><span id="stats-size">0 MB</span> Total</span>
+                        <span class="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1"><span id="stats-count">0</span> Arquivos</span>
+                        <span class="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1"><span id="stats-size">0 MB</span> Total</span>
                         <span id="server-status" class="text-[10px] font-bold text-emerald-500 uppercase flex items-center gap-1">● Online</span>
                     </div>
                 </div>
@@ -106,12 +144,24 @@
                     </div>
 
                     <div id="preview-filled" class="hidden flex flex-col h-full">
-                        <div class="relative h-64">
-                            <img id="v-thumb" src="" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-gradient-to-t from-[#0c0a1a] via-transparent to-transparent"></div>
-                            <div class="absolute bottom-6 left-6 right-6">
+                        <div class="relative h-72">
+                            <div id="v-preview-container" class="w-full h-full">
+                                <img id="v-thumb" src="" class="w-full h-full object-cover">
+                                <div id="v-player-wrapper" class="hidden vid-container">
+                                    <div id="player"></div>
+                                    <video id="local-player" class="hidden w-full h-full" controls></video>
+                                </div>
+                                <div id="v-download-overlay" class="hidden absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-50">
+                                    <div class="spinner w-12 h-12 border-4 mb-4"></div>
+                                    <h3 class="text-xl font-bold text-white mb-1">Baixando...</h3>
+                                    <p id="v-download-progress-text" class="text-violet-400 font-black text-2xl">0%</p>
+                                    <div class="w-48 progress-track h-2 mt-4"><div id="v-download-progress-fill" class="progress-fill" style="width:0%"></div></div>
+                                </div>
+                            </div>
+                            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0c0a1a] via-transparent to-transparent h-24 pointer-events-none"></div>
+                            <div class="absolute bottom-6 left-6 right-6 pointer-events-none">
                                 <h2 id="v-title" class="text-2xl font-black text-white leading-tight line-clamp-2">Título do Vídeo</h2>
-                                <p id="v-meta" class="text-sm font-medium text-slate-400 mt-1">Canal • 00:00</p>
+                                <p id="v-meta" class="text-sm font-medium text-slate-200 mt-1">Canal • 00:00</p>
                             </div>
                         </div>
 
@@ -121,7 +171,7 @@
                                 <!-- Format / Res -->
                                 <div class="space-y-6">
                                     <div>
-                                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Extensão & Qualidade</p>
+                                        <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-3">Extensão & Qualidade</p>
                                         <div class="flex flex-wrap gap-2 mb-4">
                                             <button class="opt-tab active" data-fmt="mp4" data-type="video" onclick="selectFmt(this)">MP4</button>
                                             <button class="opt-tab" data-fmt="mkv" data-type="video" onclick="selectFmt(this)">MKV</button>
@@ -140,24 +190,38 @@
                                     <div class="flex flex-wrap gap-5">
                                         <label class="toggle-label"><input type="checkbox" id="chk-metadata" checked class="toggle-input"><div class="toggle-switch"></div> Thumbnail/Metadados</label>
                                     </div>
-                                </div>
-
-                                <!-- Trim Section -->
+                                              <!-- Trim Section -->
                                 <div class="space-y-4">
-                                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Corte de Vídeo (Clip)</p>
+                                    <div class="flex justify-between items-center">
+                                        <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Corte de Vídeo (Clip)</p>
+                                        <button onclick="resetTrim()" class="text-[9px] font-bold text-violet-400 hover:text-white transition-colors">RESETAR</button>
+                                    </div>
+                                    
+                                    <div class="range-container group">
+                                        <div id="range-sel" class="range-selected"></div>
+                                        <input type="range" id="range-start" class="range-input" min="0" max="100" value="0" oninput="handleRangeInput(this, 'start')">
+                                        <input type="range" id="range-end" class="range-input" min="0" max="100" value="100" oninput="handleRangeInput(this, 'end')">
+                                    </div>
+
                                     <div class="flex items-center gap-3">
                                         <div class="flex-1 space-y-1">
-                                            <label class="text-[9px] font-bold text-slate-600">INÍCIO</label>
-                                            <input id="trim-start" type="text" placeholder="00:00:00" class="glass-input w-full px-3 py-2.5 text-xs text-center">
+                                            <div class="flex justify-between items-center">
+                                                <label class="text-[9px] font-bold text-slate-600">INÍCIO</label>
+                                                <button onclick="setClipFromPlayer('start')" class="text-[8px] px-1.5 py-0.5 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-white">ATUAL</button>
+                                            </div>
+                                            <input id="trim-start" type="text" placeholder="00:00:00" class="glass-input w-full px-2 py-2 text-[11px] text-center font-mono">
                                         </div>
-                                        <div class="pt-4 text-slate-700">➜</div>
+                                        <div class="pt-5 text-slate-700 text-xs text-bold">➜</div>
                                         <div class="flex-1 space-y-1">
-                                            <label class="text-[9px] font-bold text-slate-600">FIM</label>
-                                            <input id="trim-end" type="text" placeholder="Fim" class="glass-input w-full px-3 py-2.5 text-xs text-center">
+                                            <div class="flex justify-between items-center">
+                                                <label class="text-[9px] font-bold text-slate-600">FIM</label>
+                                                <button onclick="setClipFromPlayer('end')" class="text-[8px] px-1.5 py-0.5 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-white">ATUAL</button>
+                                            </div>
+                                            <input id="trim-end" type="text" placeholder="Fim" class="glass-input w-full px-2 py-2 text-[11px] text-center font-mono">
                                         </div>
                                     </div>
-                                    <p class="text-[9px] text-slate-600 italic">Use HH:MM:SS para precisão.</p>
-                                </div>
+                                    <p class="text-[9px] text-slate-300 italic">Deslize para cortar ou use botões para capturar o tempo atual do player.</p>
+                                </div>                          </div>
                             </div>
                             
                             <button onclick="addToQueue()" class="btn-gradient w-full py-5 text-base tracking-[3px] font-black group">
@@ -175,11 +239,11 @@
                     <!-- Queue -->
                     <div>
                         <div class="flex justify-between items-center mb-4">
-                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Processamento</p>
+                            <p class="text-[11px] font-bold text-white uppercase tracking-[2px]">Processamento</p>
                             <span id="queue-badge" class="badge badge-violet">Fila: 0</span>
                         </div>
                         <div id="queue-list" class="space-y-2 max-h-48 overflow-y-auto scrollable">
-                            <p class="text-[11px] text-slate-600 italic text-center py-4">Fila vazia</p>
+                            <p class="text-[11px] text-slate-400 italic text-center py-4">Fila vazia</p>
                         </div>
                     </div>
 
@@ -187,21 +251,53 @@
 
                     <!-- Active -->
                     <div>
-                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px] mb-4">Atividade em Tempo Real</p>
+                        <p class="text-[11px] font-bold text-white uppercase tracking-[2px] mb-4">Atividade em Tempo Real</p>
                         <div id="active-list" class="space-y-4">
-                            <p class="text-[11px] text-slate-600 italic text-center py-4">Nenhuma atividade</p>
+                            <p class="text-[11px] text-slate-400 italic text-center py-4">Nenhuma atividade</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Library -->
-                <div class="glass flex-1 p-6 flex flex-col min-h-[400px] fade-up" style="animation-delay:0.4s">
+                <div class="glass flex-1 p-6 flex flex-col min-h-[460px] fade-up relative overflow-hidden" style="animation-delay:0.4s">
                     <div class="flex justify-between items-center mb-6">
-                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[2px]">Biblioteca Local</p>
+                        <p class="text-[11px] font-bold text-white uppercase tracking-[2px]">Biblioteca Local</p>
                         <button onclick="fetchStats(); fetchFiles()" class="text-[10px] font-bold text-violet-400 hover:text-white transition-colors">ATUALIZAR</button>
                     </div>
+                    
+                    <!-- Lista de Arquivos -->
                     <div id="lib-list" class="space-y-2 overflow-y-auto scrollable flex-1 pr-1">
-                        <!-- List -->
+                        <!-- Itens da biblioteca aqui -->
+                    </div>
+
+                    <!-- Preview Panel - Opaco, hierarquia clara, zero confusão -->
+                    <div id="lib-preview-panel" class="hidden absolute inset-0 z-50 flex flex-col animate-slide-up" style="background:#0e0c1d; border-radius: inherit;">
+                        
+                        <!-- HEADER: Barra de navegação clara -->
+                        <div style="padding:16px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                            <button onclick="closeLibPreview()" style="width:32px; height:32px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; color:#a78bfa; font-size:14px; cursor:pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">←</button>
+                            <div style="flex:1; overflow:hidden;">
+                                <p style="font-size:9px; font-weight:800; color:#a78bfa; text-transform:uppercase; letter-spacing:2px; margin-bottom:2px;">Preview</p>
+                                <p id="lib-preview-title" style="font-size:11px; font-weight:900; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Arquivo</p>
+                            </div>
+                        </div>
+                        
+                        <!-- BODY: Player com fundo preto puro = contraste máximo -->
+                        <div style="flex:1; min-height:0; margin:12px; border-radius:16px; overflow:hidden; position:relative; background:#000; display:flex; align-items:center; justify-content:center;">
+                            <video id="lib-preview-video" style="width:100%; height:100%; object-fit:contain;" controls autoplay></video>
+                            
+                            <!-- Audio Fallback (display controlado via JS) -->
+                            <div id="lib-preview-audio-ui" style="display:none; position:absolute; inset:0; flex-direction:column; align-items:center; justify-content:center; background: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(0,0,0,0.9) 100%);">
+                                <div style="width:72px; height:72px; border-radius:50%; background:rgba(139,92,246,0.2); display:flex; align-items:center; justify-content:center; font-size:36px; box-shadow: 0 0 40px rgba(139,92,246,0.2); margin-bottom:16px;">🎵</div>
+                                <p id="lib-preview-audio-name" style="font-size:11px; font-weight:800; color:white; max-width:200px; text-align:center; line-height:1.4; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"></p>
+                            </div>
+                        </div>
+
+                        <!-- FOOTER: Ações com separação visual clara -->
+                        <div style="padding: 0 12px 16px 12px; display:flex; gap:8px; flex-shrink:0;">
+                            <button id="lib-preview-reveal-btn" style="flex:1; height:40px; border-radius:12px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.2); color:#c4b5fd; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;" onmouseover="this.style.background='rgba(139,92,246,0.2)'" onmouseout="this.style.background='rgba(139,92,246,0.1)'">📂 Abrir Pasta</button>
+                            <button id="lib-preview-delete-btn" style="width:40px; height:40px; border-radius:12px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.15); color:#f87171; font-size:14px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.08)'">🗑️</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -216,7 +312,144 @@
 
     <script>
         const API = 'http://127.0.0.1:5001';
-        let state = { url:null, fmt:'mp4', res:'best', info:null, poll:null, busy:false };
+        let state = { 
+            url: null, fmt: 'mp4', res: 'best', info: null, poll: null, busy: false,
+            player: null, duration: 0, clip: { start: 0, end: 0 }, ytReady: false
+        };
+
+        // YouTube Iframe API Hook
+        window.onYouTubeIframeAPIReady = () => {
+            state.ytReady = true;
+            console.log("YouTube API Ready");
+        };
+
+        // UI Helpers
+        const secToTime = (s) => {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = Math.floor(s % 60);
+            return [h, m, sec].map(v => v.toString().padStart(2, '0')).join(':');
+        };
+
+        const timeToSec = (t) => {
+            if (!t) return 0;
+            const parts = t.split(':').reverse();
+            return parts.reduce((acc, v, i) => acc + parseInt(v) * (60 ** i), 0);
+        };
+
+        function handleRangeInput(el, type) {
+            const start = document.getElementById('range-start');
+            const end = document.getElementById('range-end');
+            const sel = document.getElementById('range-sel');
+            
+            let v1 = parseInt(start.value);
+            let v2 = parseInt(end.value);
+
+            if (type === 'start' && v1 >= v2) {
+                v1 = v2 - 1;
+                start.value = v1;
+            } else if (type === 'end' && v2 <= v1) {
+                v2 = v1 + 1;
+                end.value = v2;
+            }
+
+            if (state.duration > 0) {
+                sel.style.left = (v1 / state.duration * 100) + '%';
+                sel.style.width = ((v2 - v1) / state.duration * 100) + '%';
+            } else {
+                sel.style.left = '0%';
+                sel.style.width = '100%';
+            }
+
+            document.getElementById('trim-start').value = secToTime(v1);
+            document.getElementById('trim-end').value = secToTime(v2);
+            state.clip = { start: v1, end: v2 };
+            
+            // Preview in player if exists
+            if (state.player && state.player.seekTo) {
+                state.player.seekTo(type === 'start' ? v1 : v2);
+            }
+        }
+
+        function setClipFromPlayer(type) {
+            if (!state.player || !state.player.getCurrentTime) return;
+            const cur = Math.floor(state.player.getCurrentTime());
+            const start = document.getElementById('range-start');
+            const end = document.getElementById('range-end');
+            
+            if (type === 'start') {
+                start.value = cur;
+                handleRangeInput(start, 'start');
+            } else {
+                end.value = cur;
+                handleRangeInput(end, 'end');
+            }
+        }
+
+        function resetTrim() {
+            const start = document.getElementById('range-start');
+            const end = document.getElementById('range-end');
+            start.value = 0;
+            end.value = state.duration;
+            handleRangeInput(start, 'start');
+            document.getElementById('trim-start').value = '';
+            document.getElementById('trim-end').value = '';
+        }
+
+        function initPlayer(id) {
+            if (state.player) {
+                try { state.player.destroy(); } catch(e) {}
+                state.player = null;
+            }
+            
+            const wrapper = document.getElementById('v-player-wrapper');
+            const thumb = document.getElementById('v-thumb');
+
+            if (state.info.platform === 'youtube' && id && (window.YT && YT.Player)) {
+                wrapper.classList.remove('hidden');
+                thumb.classList.add('hidden');
+                
+                try {
+                    const playerOptions = {
+                        videoId: id,
+                        playerVars: { 
+                            'autoplay': 0, 
+                            'controls': 1, 
+                            'modestbranding': 1, 
+                            'rel': 0,
+                            'enablejsapi': 1
+                        },
+                        events: {
+                            'onReady': (e) => console.log("Player Ready"),
+                            'onError': (e) => {
+                                console.error("Player Error:", e.data);
+                                wrapper.classList.add('hidden');
+                                thumb.classList.remove('hidden');
+                                if (e.data === 150 || e.data === 101 || e.data === 153) {
+                                    showToast('⚠️', 'Vídeo com restrição de incorporação');
+                                } else {
+                                    showToast('❌', 'Erro ao carregar player');
+                                }
+                            }
+                        }
+                    };
+                    
+                    // Solo añadir origin si no es null/file
+                    if (window.location.origin && !window.location.origin.startsWith('file')) {
+                        playerOptions.playerVars.origin = window.location.origin;
+                    }
+
+                    state.player = new YT.Player('player', playerOptions);
+                } catch(err) {
+                    console.error("Setup Error:", err);
+                    wrapper.classList.add('hidden');
+                    thumb.classList.remove('hidden');
+                }
+            } else {
+                wrapper.classList.add('hidden');
+                thumb.classList.remove('hidden');
+            }
+        }
 
         function selectFmt(btn) {
             document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
@@ -241,11 +474,32 @@
                 const d = await r.json();
                 if(d.error) throw d.error;
                 
-                state.url = url; state.info = d;
+                state.url = url; 
+                state.info = d;
+                state.duration = d.duration_sec || 0;
+                
+                // Reset players
+                document.getElementById('v-player-wrapper').classList.add('hidden');
+                document.getElementById('local-player').classList.add('hidden');
+                document.getElementById('local-player').pause();
+                document.getElementById('local-player').src = '';
+                document.getElementById('player').classList.remove('hidden');
+                
                 document.getElementById('v-thumb').src = d.thumbnail;
                 document.getElementById('v-title').textContent = d.title;
                 document.getElementById('v-meta').textContent = `${d.uploader} • ${d.duration}`;
                 
+                // Initialize Range Sliders
+                const rStart = document.getElementById('range-start');
+                const rEnd = document.getElementById('range-end');
+                rStart.max = state.duration;
+                rEnd.max = state.duration;
+                rStart.value = 0;
+                rEnd.value = state.duration;
+                handleRangeInput(rStart, 'start');
+
+                initPlayer(d.id);
+
                 const pMap = { youtube:{n:'YouTube', c:'red'}, tiktok:{n:'TikTok', c:'slate'}, instagram:{n:'Instagram', c:'pink'}, vimeo:{n:'Vimeo', c:'blue'} };
                 const p = pMap[d.platform] || {n:'Web', c:'slate'};
                 document.getElementById('p-name').textContent = p.n;
@@ -260,10 +514,28 @@
             finally { btn.innerHTML = 'Analisar'; }
         }
 
+        function isValidTime(str) {
+            // Permite HH:MM:SS, MM:SS ou SS
+            if (!str) return true;
+            return /^([0-9]{1,2}:)?[0-5]?[0-9]:[0-5][0-9]$|^[0-9]+$/.test(str);
+        }
+
         async function addToQueue() {
             if(!state.url) return;
-            const start = document.getElementById('trim-start').value;
-            const end = document.getElementById('trim-end').value;
+            const start = document.getElementById('trim-start').value.trim();
+            const end = document.getElementById('trim-end').value.trim();
+            if ((start && !isValidTime(start)) || (end && !isValidTime(end))) {
+                showToast('⚠️', 'Tempo inválido! Use HH:MM:SS, MM:SS ou SS.');
+                return;
+            }
+            if (start && end) {
+                // Verifica se end > start
+                const toSec = t => t.split(':').reverse().reduce((acc, v, i) => acc + parseInt(v)*(60**i), 0);
+                if (toSec(end) <= toSec(start)) {
+                    showToast('⚠️', 'O FIM deve ser maior que o INÍCIO.');
+                    return;
+                }
+            }
             const body = {
                 url: state.url,
                 format: state.fmt,
@@ -274,10 +546,17 @@
                 playlist: document.getElementById('chk-playlist').checked
             };
             try {
-                await fetch(`${API}/download`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+                const resp = await fetch(`${API}/download`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+                if (!resp.ok) {
+                    const err = await resp.text();
+                    showToast('❌', 'Erro ao enfileirar: ' + err);
+                    return;
+                }
                 showToast('⏳', 'Adicionado à fila');
                 startPolling();
-            } catch { showToast('❌', 'Falha ao enfileirar'); }
+            } catch (e) {
+                showToast('❌', 'Falha ao enfileirar');
+            }
         }
 
         function startPolling() {
@@ -291,21 +570,41 @@
                     updateQueueUI(queue);
                     updateStatsUI(stats);
                     
-                    const activeCount = Object.values(status).filter(s => ['Baixando','Convertendo...','Iniciando...','Na Fila'].includes(s.status)).length;
+                    const activeCount = Object.values(status).filter(s => ['Baixando','Baixando (FFmpeg)','Convertendo...','Iniciando...','Processando...','Na Fila'].includes(s.status)).length;
                     if(activeCount === 0 && queue.length === 0) {
                          if(!state.busy) { clearInterval(state.poll); state.poll = null; fetchFiles(); }
                     }
                 } catch(e) {}
-            }, 3000);
+            }, 1500);
         }
 
         function updateStatusUI(data) {
             const list = document.getElementById('active-list');
+            const overlay = document.getElementById('v-download-overlay');
+            const overlayProgress = document.getElementById('v-download-progress-text');
+            const overlayFill = document.getElementById('v-download-progress-fill');
+            
             list.innerHTML = '';
-            const active = Object.entries(data).filter(([u,s]) => !['Concluído', 'Erro', 'Cancelado', 'Na Fila'].includes(s.status));
-            if(!active.length) { list.innerHTML = '<p class="text-[11px] text-slate-600 italic text-center py-4">Nenhuma atividade</p>'; return; }
-            active.forEach(([u,s]) => {
-                const el = document.createElement('div'); el.className = 'space-y-2 group';
+            const activeEntries = Object.entries(data).filter(([u,s]) => !['Concluído', 'Erro', 'Cancelado'].includes(s.status));
+            
+            if(!activeEntries.length) { 
+                list.innerHTML = '<p class="text-[11px] text-slate-400 italic text-center py-4">Nenhuma atividade</p>'; 
+                overlay.classList.add('hidden');
+                return; 
+            }
+
+            // Check if current URL is downloading to show overlay
+            const currentDownload = activeEntries.find(([u,s]) => u === state.url);
+            if (currentDownload) {
+                overlay.classList.remove('hidden');
+                overlayProgress.textContent = `${currentDownload[1].progress}%`;
+                overlayFill.style.width = `${currentDownload[1].progress}%`;
+            } else {
+                overlay.classList.add('hidden');
+            }
+
+            activeEntries.forEach(([u,s]) => {
+                const el = document.createElement('div'); el.className = 'space-y-2 group fade-up';
                 el.innerHTML = `
                     <div class="flex justify-between items-end">
                         <div class="flex items-center gap-2">
@@ -314,8 +613,8 @@
                         </div>
                         <span class="text-[10px] font-black text-white">${s.progress}%</span>
                     </div>
-                    <div class="progress-track h-2"><div class="progress-fill" style="width:${s.progress}%"></div></div>
-                    <div class="flex justify-between text-[9px] font-medium text-slate-500">
+                    <div class="progress-track h-2 shimmer"><div class="progress-fill progress-pulse" style="width:${s.progress}%"></div></div>
+                    <div class="flex justify-between text-[9px] font-medium text-slate-300">
                         <span class="truncate w-40">${u}</span>
                         <span>${s.speed || '--'} • ETA: ${s.eta || '--'}</span>
                     </div>
@@ -327,11 +626,11 @@
         function updateQueueUI(data) {
             const list = document.getElementById('queue-list'); list.innerHTML = '';
             document.getElementById('queue-badge').textContent = `Fila: ${data.length}`;
-            if(!data.length) { list.innerHTML = '<p class="text-[11px] text-slate-600 italic text-center py-4">Fila vazia</p>'; return; }
+            if(!data.length) { list.innerHTML = '<p class="text-[11px] text-slate-400 italic text-center py-4">Fila vazia</p>'; return; }
             data.forEach(item => {
                 const el = document.createElement('div'); el.className = 'glass-inset p-3 flex justify-between items-center group';
                 el.innerHTML = `
-                    <span class="text-[10px] font-bold text-slate-400 truncate w-32">${item.url}</span> 
+                        <span class="text-[11px] font-bold text-slate-200 truncate w-32">${item.url}</span> 
                     <div class="flex items-center gap-2">
                          <span class="badge text-[8px] uppercase">${item.format}</span>
                          <button onclick="cancelDownload('${item.url}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all">✕</button>
@@ -351,13 +650,42 @@
             try {
                 const d = await fetch(`${API}/list`).then(r=>r.json());
                 const list = document.getElementById('lib-list'); list.innerHTML = '';
+                
+                // Group thumbnails by base name
+                const thumbs = {};
                 d.files.forEach(f => {
+                    const ext = f.name.split('.').pop().toLowerCase();
+                    if(['webp','jpg','png','jpeg'].includes(ext)) {
+                        const base = f.name.substring(0, f.name.lastIndexOf('.'));
+                        thumbs[base] = f.name;
+                    }
+                });
+
+                d.files.filter(f => {
+                    const ext = f.name.split('.').pop().toLowerCase();
+                    return !['webp','jpg','png','jpeg'].includes(ext);
+                }).forEach(f => {
                     const ext = f.name.split('.').pop().toUpperCase();
+                    const base = f.name.substring(0, f.name.lastIndexOf('.'));
+                    const hasThumb = thumbs[base];
+                    
                     const colors = { MP4:'#818cf8', MKV:'#6366f1', MP3:'#ec4899', M4A:'#f472b6', WAV:'#a78bfa' };
                     const c = colors[ext] || '#94a3b8';
-                    const el = document.createElement('div'); el.className = 'glass-inset glass-hover group flex items-center gap-3 p-3 transition-all';
+                    
+                    const el = document.createElement('div'); 
+                    el.className = 'glass-inset glass-hover group flex items-center gap-3 p-3 transition-all cursor-pointer';
+                    el.onclick = (e) => { 
+                        if(e.target.tagName !== 'BUTTON') loadLocalFile(f.name); 
+                    };
+
+                    const iconContent = hasThumb 
+                        ? `<img src="${API}/get_file/${encodeURIComponent(hasThumb)}" class="w-full h-full object-cover rounded-lg">`
+                        : ext;
+
                     el.innerHTML = `
-                        <div style="min-width:40px;height:40px;background:${c}15;border:1px solid ${c}40;" class="rounded-xl flex items-center justify-center text-[10px] font-black" style="color:${c}">${ext}</div>
+                        <div style="min-width:60px;height:40px;background:${c}15;border:1px solid ${c}40;" class="rounded-xl flex items-center justify-center text-[10px] font-black overflow-hidden" style="color:${c}">
+                            ${iconContent}
+                        </div>
                         <div class="flex-1 overflow-hidden">
                             <p class="text-[11px] font-bold text-slate-200 truncate">${f.name}</p>
                             <p class="text-[9px] font-medium text-slate-500">${f.size}</p>
@@ -369,6 +697,47 @@
                     list.appendChild(el);
                 });
             } catch(e) {}
+        }
+
+        function loadLocalFile(name) {
+            const ext = name.split('.').pop().toUpperCase();
+            const isAudio = ['MP3', 'M4A', 'WAV', 'OPUS'].includes(ext);
+            const panel = document.getElementById('lib-preview-panel');
+            const video = document.getElementById('lib-preview-video');
+            const audioUI = document.getElementById('lib-preview-audio-ui');
+            const title = document.getElementById('lib-preview-title');
+            const audioName = document.getElementById('lib-preview-audio-name');
+            
+            title.textContent = name;
+            panel.classList.remove('hidden');
+            
+            const fileUrl = `${API}/get_file/${encodeURIComponent(name)}`;
+            video.src = fileUrl;
+            video.load();
+            
+            if (isAudio) {
+                video.style.height = '0';
+                audioUI.style.display = 'flex';
+                audioName.textContent = name;
+            } else {
+                video.style.height = '100%';
+                audioUI.style.display = 'none';
+            }
+            
+            // Actions
+            document.getElementById('lib-preview-reveal-btn').onclick = () => revealFile(name);
+            document.getElementById('lib-preview-delete-btn').onclick = () => {
+                deleteFile(name);
+                closeLibPreview();
+            };
+        }
+
+        function closeLibPreview() {
+            const video = document.getElementById('lib-preview-video');
+            video.pause();
+            video.src = '';
+            document.getElementById('lib-preview-audio-ui').style.display = 'none';
+            document.getElementById('lib-preview-panel').classList.add('hidden');
         }
 
         async function deleteFile(name) {

@@ -22,10 +22,16 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "directories": {
       "output": "release"
@@ -38,6 +44,6 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "electron": "^41.0.4",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^26.8.1"
   }
 }

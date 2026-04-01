@@ -7,6 +7,153 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* ── Update System Styles ── */
+        .version-badge {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 14px; border-radius: 12px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 12px; cursor: default;
+            font-size: 10px; color: #94a3b8; font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .version-badge i { font-size: 12px; color: #8b5cf6; }
+        .version-badge.has-update {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: rgba(16, 185, 129, 0.08);
+            cursor: pointer; position: relative;
+        }
+        .version-badge.has-update:hover {
+            background: rgba(16, 185, 129, 0.15);
+            transform: translateY(-1px);
+        }
+        .update-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #10b981; display: none;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        .version-badge.has-update .update-dot { display: block; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.7); }
+        }
+
+        /* ── Update Modal ── */
+        .update-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
+            display: none; align-items: center; justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .update-overlay.visible { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .update-modal {
+            width: 460px; max-height: 80vh;
+            background: #12101f; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px; overflow: hidden;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.5), 0 0 60px rgba(139, 92, 246, 0.1);
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        .update-modal-header {
+            padding: 28px 28px 0; display: flex; align-items: flex-start; justify-content: space-between;
+        }
+        .update-modal-header h2 {
+            font-size: 18px; font-weight: 800; color: #fff;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .update-modal-header h2 i { color: #10b981; font-size: 20px; }
+        .update-modal-close {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #94a3b8; transition: all 0.2s;
+        }
+        .update-modal-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+        .update-modal-body { padding: 20px 28px; }
+        .update-meta {
+            display: flex; gap: 12px; margin-bottom: 18px;
+        }
+        .update-meta-chip {
+            padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: 700;
+            background: rgba(139, 92, 246, 0.12); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.2);
+            text-transform: uppercase;
+        }
+        .update-meta-chip.commits { background: rgba(16,185,129,0.1); color: #34d399; border-color: rgba(16,185,129,0.2); }
+
+        .update-changelog {
+            max-height: 200px; overflow-y: auto;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px; padding: 14px; margin-bottom: 18px;
+        }
+        .update-changelog::-webkit-scrollbar { width: 4px; }
+        .update-changelog::-webkit-scrollbar-track { background: transparent; }
+        .update-changelog::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+        .update-changelog .commit-line {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 6px 0; font-size: 11px; color: #cbd5e1;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .update-changelog .commit-line:last-child { border-bottom: none; }
+        .commit-hash {
+            font-family: 'JetBrains Mono', 'SF Mono', monospace;
+            font-size: 10px; color: #8b5cf6; font-weight: 700;
+            background: rgba(139,92,246,0.1); padding: 2px 6px; border-radius: 4px;
+            white-space: nowrap; flex-shrink: 0;
+        }
+
+        .update-progress-container {
+            display: none; margin-bottom: 18px;
+        }
+        .update-progress-container.active { display: block; }
+        .update-progress-bar {
+            height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .update-progress-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, #8b5cf6, #10b981);
+            transition: width 0.5s ease; width: 0%;
+        }
+        .update-progress-text {
+            font-size: 11px; color: #94a3b8; font-weight: 600;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .update-progress-text i { font-size: 12px; animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .update-modal-footer {
+            padding: 0 28px 28px; display: flex; gap: 10px;
+        }
+        .update-btn {
+            flex: 1; padding: 12px 20px; border-radius: 14px;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            border: none; transition: all 0.2s; text-align: center;
+        }
+        .update-btn.primary {
+            background: linear-gradient(135deg, #8b5cf6, #10b981);
+            color: #fff; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+        }
+        .update-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(139, 92, 246, 0.4); }
+        .update-btn.primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .update-btn.secondary {
+            background: rgba(255,255,255,0.06); color: #94a3b8;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .update-btn.secondary:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+        .update-success {
+            display: none; text-align: center; padding: 10px 0;
+        }
+        .update-success.visible { display: block; }
+        .update-success i { font-size: 40px; color: #10b981; margin-bottom: 12px; }
+        .update-success h3 { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+        .update-success p { font-size: 12px; color: #94a3b8; }
+    </style>
 </head>
 <body>
     <div class="aurora">
@@ -32,9 +179,9 @@
                     <i class="fab fa-tiktok"></i>
                     <span>Social Snapper</span>
                 </a>
-                <a href="#" class="nav-item">
-                    <i class="fas fa-magic"></i>
-                    <span>Em Breve...</span>
+                <a href="#" class="nav-item" onclick="loadTool('movie-web')">
+                    <i class="fas fa-clapperboard"></i>
+                    <span>Movie Web</span>
                 </a>
                 <a href="#" class="nav-item" onclick="loadTool('anime')">
                     <i class="fas fa-play-circle"></i>
@@ -48,6 +195,14 @@
                     <i class="fas fa-book"></i>
                     <span>Book Hub</span>
                 </a>
+            </div>
+
+            <!-- Version & Update Badge -->
+            <div class="version-badge" id="version-badge" onclick="openUpdateModal()">
+                <i class="fas fa-code-branch"></i>
+                <span id="version-text">v1.0.0</span>
+                <div style="flex:1"></div>
+                <div class="update-dot"></div>
             </div>
 
             <div class="user-profile">
@@ -78,20 +233,52 @@
         </main>
     </div>
 
+    <!-- Update Modal -->
+    <div class="update-overlay" id="update-overlay" onclick="if(event.target===this)closeUpdateModal()">
+        <div class="update-modal">
+            <div class="update-modal-header">
+                <h2><i class="fas fa-arrow-up-from-bracket"></i> Atualização Disponível</h2>
+                <div class="update-modal-close" onclick="closeUpdateModal()"><i class="fas fa-xmark"></i></div>
+            </div>
+            <div class="update-modal-body">
+                <div class="update-meta" id="update-meta">
+                    <span class="update-meta-chip" id="update-version-chip">nova versão</span>
+                    <span class="update-meta-chip commits" id="update-commits-chip">0 commits</span>
+                </div>
+                <div class="update-changelog" id="update-changelog"></div>
+                <div class="update-progress-container" id="update-progress">
+                    <div class="update-progress-bar"><div class="update-progress-fill" id="update-progress-fill"></div></div>
+                    <div class="update-progress-text"><i class="fas fa-spinner"></i> <span id="update-progress-text">Preparando...</span></div>
+                </div>
+                <div class="update-success" id="update-success">
+                    <i class="fas fa-circle-check"></i>
+                    <h3>Atualização Concluída!</h3>
+                    <p>Reinicie o app para aplicar as alterações</p>
+                </div>
+            </div>
+            <div class="update-modal-footer" id="update-footer">
+                <button class="update-btn secondary" onclick="closeUpdateModal()">Depois</button>
+                <button class="update-btn primary" id="update-apply-btn" onclick="applyUpdate()">
+                    <i class="fas fa-download"></i> Atualizar Agora
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Tools63 Core logic
+        const { ipcRenderer } = require('electron');
+        
+        // ── Tools Navigation ──
         function loadTool(toolName) {
             const iframe = document.getElementById('tool-iframe');
-            // Remove active from all
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            
-            // Add active to current
             const clicked = event ? event.currentTarget : null;
             if (clicked) clicked.classList.add('active');
 
             if (toolName === 'youtube') iframe.src = 'tools/youtube/index.html';
             else if (toolName === 'snapper') iframe.src = 'tools/snapper/index.html';
             else if (toolName === 'anime') iframe.src = 'tools/anime/index.html';
+            else if (toolName === 'movie-web') iframe.src = 'tools/movie-web/index.html';
             else if (toolName === 'manga') {
                 localStorage.setItem('tools63_initial_type', 'manga');
                 iframe.src = 'tools/manga/index.html';
@@ -100,6 +287,142 @@
                 iframe.src = 'tools/manga/index.html';
             }
         }
+
+        // ── Auto-Update System ──
+        let updateData = null;
+
+        async function initVersionInfo() {
+            try {
+                const info = await ipcRenderer.invoke('get-app-version');
+                document.getElementById('version-text').textContent = info.isGit 
+                    ? `${info.branch} · ${info.version}` 
+                    : `v1.0.0`;
+            } catch(e) {
+                document.getElementById('version-text').textContent = 'v1.0.0';
+            }
+        }
+
+        async function checkForUpdates(silent = true) {
+            try {
+                const result = await ipcRenderer.invoke('check-for-updates');
+                const badge = document.getElementById('version-badge');
+                
+                if (result.available) {
+                    updateData = result;
+                    badge.classList.add('has-update');
+                    badge.title = `${result.commitCount} atualização(ões) disponível(is)`;
+                    if (!silent) openUpdateModal();
+                } else {
+                    badge.classList.remove('has-update');
+                    if (result.currentVersion) {
+                        document.getElementById('version-text').textContent = 
+                            `Atualizado · ${result.currentVersion}`;
+                    }
+                }
+            } catch(e) {
+                console.warn('Update check failed:', e);
+            }
+        }
+
+        function openUpdateModal() {
+            if (!updateData) { checkForUpdates(false); return; }
+            
+            const overlay = document.getElementById('update-overlay');
+            overlay.classList.add('visible');
+            
+            // Preencher dados
+            document.getElementById('update-version-chip').textContent = `${updateData.currentVersion} → ${updateData.remoteVersion}`;
+            document.getElementById('update-commits-chip').textContent = `${updateData.commitCount} commit${updateData.commitCount > 1 ? 's' : ''}`;
+            
+            // Changelog
+            const changelog = document.getElementById('update-changelog');
+            changelog.innerHTML = updateData.commits.map(c => {
+                const parts = c.split(' ');
+                const hash = parts[0];
+                const msg = parts.slice(1).join(' ');
+                return `<div class="commit-line"><span class="commit-hash">${hash}</span><span>${msg}</span></div>`;
+            }).join('');
+            
+            // Reset state
+            document.getElementById('update-progress').classList.remove('active');
+            document.getElementById('update-success').classList.remove('visible');
+            document.getElementById('update-apply-btn').disabled = false;
+            document.getElementById('update-apply-btn').innerHTML = '<i class="fas fa-download"></i> Atualizar Agora';
+            document.getElementById('update-footer').style.display = 'flex';
+        }
+
+        function closeUpdateModal() {
+            document.getElementById('update-overlay').classList.remove('visible');
+        }
+
+        async function applyUpdate() {
+            const btn = document.getElementById('update-apply-btn');
+            const progressContainer = document.getElementById('update-progress');
+            const progressFill = document.getElementById('update-progress-fill');
+            const progressText = document.getElementById('update-progress-text');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
+            progressContainer.classList.add('active');
+            progressFill.style.width = '10%';
+            progressText.textContent = 'Iniciando...';
+            
+            try {
+                const result = await ipcRenderer.invoke('apply-update');
+                
+                if (result.success) {
+                    progressFill.style.width = '100%';
+                    document.getElementById('update-success').classList.add('visible');
+                    progressContainer.classList.remove('active');
+                    
+                    // Trocar botões
+                    document.getElementById('update-footer').innerHTML = `
+                        <button class="update-btn secondary" onclick="closeUpdateModal()">Depois</button>
+                        <button class="update-btn primary" onclick="restartApp()">
+                            <i class="fas fa-rotate-right"></i> Reiniciar Agora
+                        </button>
+                    `;
+                    
+                    // Atualizar badge
+                    document.getElementById('version-badge').classList.remove('has-update');
+                    document.getElementById('version-text').textContent = `Atualizado · ${result.newVersion}`;
+                    updateData = null;
+                } else {
+                    progressFill.style.width = '0%';
+                    progressText.innerHTML = `<i class="fas fa-triangle-exclamation" style="color:#ef4444;animation:none"></i> ${result.error}`;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-rotate-right"></i> Tentar Novamente';
+                }
+            } catch(e) {
+                progressText.innerHTML = `<i class="fas fa-triangle-exclamation" style="color:#ef4444;animation:none"></i> Erro: ${e.message}`;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-rotate-right"></i> Tentar Novamente';
+            }
+        }
+
+        async function restartApp() {
+            await ipcRenderer.invoke('restart-app');
+        }
+
+        // Escutar progresso em tempo real
+        ipcRenderer.on('update-progress', (event, data) => {
+            const fill = document.getElementById('update-progress-fill');
+            const text = document.getElementById('update-progress-text');
+            
+            const stages = { pull: 30, npm: 60, pip: 80, done: 100 };
+            fill.style.width = (stages[data.stage] || 50) + '%';
+            text.textContent = data.message;
+        });
+
+        // ── Init ──
+        window.addEventListener('DOMContentLoaded', () => {
+            initVersionInfo();
+            // Verificar updates 3s após iniciar (silencioso)
+            setTimeout(() => checkForUpdates(true), 3000);
+            // Re-verificar a cada 30 minutos
+            setInterval(() => checkForUpdates(true), 30 * 60 * 1000);
+        });
     </script>
 </body>
 </html>
+

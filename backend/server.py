@@ -32,6 +32,12 @@ except Exception as e:
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 import yt_dlp
+
+# Forçar caminhos comuns do macOS no PATH para que yt-dlp encontre node/deno e ffmpeg
+common_paths = ['/usr/local/bin', '/opt/homebrew/bin', '/usr/bin', '/bin']
+for p in common_paths:
+    if p not in os.environ['PATH']:
+        os.environ['PATH'] = p + os.pathsep + os.environ['PATH']
 from concurrent.futures import ThreadPoolExecutor
 
 executor = ThreadPoolExecutor(max_workers=10)
@@ -69,15 +75,43 @@ kill_port(PORT)
 
 # ── Resolvendo FFmpeg e Node ──
 def get_ffmpeg_path():
+    # 1. Tentar static-ffmpeg (mais completo, tem ffprobe)
+    try:
+        import static_ffmpeg
+        static_ffmpeg.add_paths() 
+        import static_ffmpeg.run as run
+        ffmpeg_exe, _ = run.get_or_fetch_platform_executables_else_raise()
+        if ffmpeg_exe: 
+            d = os.path.dirname(ffmpeg_exe)
+            print(f">>> static-ffmpeg encontrado em: {d}")
+            return d
+    except Exception as e:
+        print(f"!!! Erro ao carregar static-ffmpeg: {e}")
+        pass
+
+    # 2. Tentar imageio-ffmpeg (apenas ffmpeg)
     try:
         import imageio_ffmpeg
         exe = imageio_ffmpeg.get_ffmpeg_exe()
-        if os.path.isfile(exe): return exe
-    except ImportError: pass
-    return shutil.which('ffmpeg')
+        if os.path.isfile(exe): return os.path.dirname(exe)
+    except: pass
+    
+    # 3. Tentar no PATH do sistema
+    f = shutil.which('ffmpeg')
+    if f: return os.path.dirname(f)
+    return None
 
 FFMPEG_PATH = get_ffmpeg_path()
-NODE_PATH = shutil.which('node') or '/usr/local/bin/node'
+def find_node():
+    node = shutil.which('node')
+    if node:
+        return node
+    # Tentativas comuns em macOS/Linux
+    for path in ['/usr/local/bin/node', '/opt/homebrew/bin/node', '/usr/bin/node']:
+        if os.path.isfile(path):
+            return path
+    return None
+NODE_PATH = find_node()
 DOWNLOAD_DIR = os.path.join(os.getcwd(), 'downloads')
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
@@ -94,9 +128,13 @@ active_threads = 0
 MAX_CONCURRENT = 2
 queue_lock = threading.Lock()
 
+
 print(f'>>> Tools63 Backend Iniciando...')
-print(f'- FFmpeg: {FFMPEG_PATH}')
-print(f'- Node.js: {NODE_PATH}')
+print(f'- FFmpeg Directory: {FFMPEG_PATH}')
+if NODE_PATH:
+    print(f'- Node.js: {NODE_PATH}')
+else:
+    print("!!! Node.js não encontrado. Baixe em https://nodejs.org/ e adicione ao PATH para evitar problemas com downloads do YouTube.")
 
 def send_notification(title, message):
     try:
@@ -153,6 +191,18 @@ def select_best_gogo_result(search_query, results):
     return best
 
 # Helpers
+def parse_time(t):
+    if not t: return None
+    if isinstance(t, (int, float)): return float(t)
+    try:
+        parts = t.split(':')
+        if len(parts) == 1: return float(parts[0])
+        res = 0
+        for i, v in enumerate(reversed(parts)):
+            res += float(v) * (60**i)
+        return res
+    except: return None
+
 def get_platform(url):
     if 'youtube.com' in url or 'youtu.be' in url: return 'youtube'
     if 'tiktok.com' in url: return 'tiktok'
@@ -160,15 +210,6 @@ def get_platform(url):
     if 'vimeo.com' in url: return 'vimeo'
     return 'generic'
 
-def progress_hook(d):
-    url = d.get('info_dict', {}).get('webpage_url')
-    if not url: return
-    if url in cancelled_urls: raise Exception("CANCELLED")
-    if d['status'] == 'downloading':
-        p = d.get('_percent_str', '0%').strip().replace('%', '')
-        download_status[url] = {'status': 'Baixando', 'progress': p, 'speed': d.get('_speed_str', ''), 'eta': d.get('_eta_str', '')}
-    elif d['status'] == 'finished':
-        download_status[url] = {'status': 'Processando...', 'progress': '99'}
 
 # Core Logic
 def process_queue():
@@ -189,67 +230,228 @@ def execute_download(task):
     clip, metadata, cookies, is_playlist = task.get('clip'), task.get('metadata'), task.get('cookies'), task.get('playlist')
     try:
         h_val = {'4k':'2160','1080p':'1080','720p':'720','480p':'480','360p':'360'}.get(res)
+        
+        # Progresso real: atualizado pelo progress_hook quando possível
+        # Progresso sintético: background thread que avança suavemente quando o hook não é chamado
+        progress_data = {'real': False, 'done': threading.Event()}
+        
+        def smart_progress_hook(d):
+            hook_url = d.get('info_dict', {}).get('webpage_url') or d.get('info_dict', {}).get('original_url') or url
+            if hook_url in cancelled_urls: raise Exception("CANCELLED")
+            
+            if d['status'] == 'downloading':
+                p = None
+                pstr = d.get('_percent_str', '').strip().replace('%', '').strip()
+                if pstr:
+                    try: p = float(pstr)
+                    except: pass
+                if p is None or p == 0:
+                    dl_b = d.get('downloaded_bytes', 0)
+                    tt_b = d.get('total_bytes') or d.get('total_bytes_estimate')
+                    if tt_b and tt_b > 0:
+                        p = round((dl_b / tt_b) * 100, 1)
+                if p is None or p == 0:
+                    frag_idx = d.get('fragment_index')
+                    frag_count = d.get('fragment_count')
+                    if frag_idx and frag_count and frag_count > 0:
+                        p = round((frag_idx / frag_count) * 100, 1)
+                if p is None or p == 0:
+                    dl_b = d.get('downloaded_bytes', 0)
+                    if dl_b > 0:
+                        mb = dl_b / (1024 * 1024)
+                        p = min(90.0, round(mb * 2, 1))
+                    else:
+                        p = 0
+                
+                p = max(0, min(95, p))
+                
+                speed = d.get('_speed_str', '').strip() or ''
+                if not speed:
+                    raw_speed = d.get('speed')
+                    if isinstance(raw_speed, (int, float)) and raw_speed > 0:
+                        if raw_speed > 1024*1024: speed = f"{raw_speed/1024/1024:.1f} MiB/s"
+                        elif raw_speed > 1024: speed = f"{raw_speed/1024:.0f} KiB/s"
+                        else: speed = f"{raw_speed:.0f} B/s"
+                
+                eta = d.get('_eta_str', '').strip() or ''
+                if not eta:
+                    eta_secs = d.get('eta')
+                    if eta_secs and isinstance(eta_secs, (int, float)):
+                        m, s = divmod(int(eta_secs), 60)
+                        eta = f"{m:02d}:{s:02d}"
+                
+                if p > 0:
+                    progress_data['real'] = True
+                    download_status[url] = {
+                        'status': 'Baixando', 
+                        'progress': str(p), 
+                        'speed': speed, 
+                        'eta': eta
+                    }
+            elif d['status'] == 'finished':
+                download_status[url] = {'status': 'Processando...', 'progress': '96'}
+        
+        def postprocessor_hook(d):
+            """Chamado durante pós-processamento FFmpeg (conversão, merge, embed thumbnail)."""
+            if d.get('status') == 'started':
+                pp_name = d.get('postprocessor', 'FFmpeg')
+                download_status[url] = {'status': f'Processando ({pp_name})...', 'progress': '97'}
+            elif d.get('status') == 'finished':
+                download_status[url] = {'status': 'Finalizando...', 'progress': '99'}
+        
         ydl_opts = {
             'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
-            'progress_hooks': [progress_hook],
+            'progress_hooks': [smart_progress_hook],
+            'postprocessor_hooks': [postprocessor_hook],
             'noplaylist': not is_playlist,
             'ignoreerrors': False,
             'nocheckcertificate': True,
-            'postprocessors': []
+            'postprocessors': [],
+            'hls_use_mpegts': True,
+            'remote_components': ['ejs:github', 'ejs:npm'],
+            'prefer_ffmpeg': True,
+            'extractor_args': {'youtube': {'player_client': ['web']}},
+            'http_headers': {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.youtube.com/'}
         }
         if FFMPEG_PATH: ydl_opts['ffmpeg_location'] = FFMPEG_PATH
-        if NODE_PATH: ydl_opts['js_runtime'] = 'node'
+        if NODE_PATH: ydl_opts['js_runtimes'] = {'node': {}}
         if cookies: ydl_opts['cookiesfrombrowser'] = ('chrome',)
         
+        post_procs = []
         if fmt in {'mp3','m4a','wav','opus'}:
             ydl_opts['format'] = 'bestaudio/best'
-            ydl_opts['postprocessors'].append({'key':'FFmpegExtractAudio','preferredcodec':fmt if fmt!='m4a' else 'm4a','preferredquality':'192'})
+            post_procs.append({'key':'FFmpegExtractAudio','preferredcodec':fmt if fmt!='m4a' else 'm4a','preferredquality':'192'})
         else:
             h_f = f'[height<={h_val}]' if h_val else ''
-            ydl_opts['format'] = f'bestvideo[ext=mp4]{h_f}+bestaudio[ext=m4a]/bestvideo{h_f}+bestaudio/best{h_f}'
+            ydl_opts['format'] = f'bestvideo[vcodec^=avc1]{h_f}+bestaudio[acodec^=mp4a]/best[vcodec^=avc1]{h_f}/best[ext=mp4]{h_f}/best'
             ydl_opts['merge_output_format'] = 'mp4'
             if fmt != 'mp4':
-                ydl_opts['postprocessors'].append({'key':'FFmpegVideoConvertor','preferedformat':fmt})
-        
+                post_procs.append({'key':'FFmpegVideoConvertor','preferedformat':fmt})
+        ydl_opts['postprocessors'] = post_procs
+
         if clip:
-            start = clip.get('start') or '0'
-            end = clip.get('end')
-            ydl_opts['download_ranges'] = lambda info, self: [{'start_time': start, 'end_time': end}]
+            s_val = parse_time(clip.get('start'))
+            e_val = parse_time(clip.get('end'))
+            start_secs = s_val if s_val is not None else 0.0
+            end_secs = e_val 
+            
+            ydl_opts['download_ranges'] = lambda info, ydl: [{'start_time': start_secs, 'end_time': end_secs}]
             ydl_opts['force_keyframes_at_cuts'] = True
+            ydl_opts['concurrent_fragment_downloads'] = 1
+            
+            start_str = f"{int(start_secs)}s"
+            end_str = f"{int(end_secs)}s" if end_secs else "fim"
+            ydl_opts['outtmpl'] = os.path.join(DOWNLOAD_DIR, f'%(title)s_clip_{start_str}_{end_str}.%(ext)s')
             
         if metadata:
             ydl_opts['writethumbnail'] = True
-            ydl_opts['postprocessors'].extend([{'key':'FFmpegMetadata'},{'key':'EmbedThumbnail'}])
+            post_procs.extend([{'key':'FFmpegMetadata'},{'key':'EmbedThumbnail'}])
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(url, download=True)
+        # Sinalizar início e iniciar thread de progresso sintético
+        download_status[url] = {'status': 'Baixando', 'progress': '1', 'speed': 'conectando...', 'eta': ''}
         
+        def synthetic_progress_thread():
+            """Fornece progresso suave quando o progress_hook real não dispara (FFmpeg re-encode, etc)."""
+            step = 0
+            while not progress_data['done'].is_set():
+                step += 1
+                # Só atualizar se o hook real NÃO estiver mandando dados
+                if not progress_data['real']:
+                    # Curva logarítmica suave: cresce rápido no início, desacelera
+                    fake_p = min(92, int(2 + (88 * (1 - (1 / (1 + step * 0.15))))))
+                    current = download_status.get(url, {})
+                    current_status = current.get('status', 'Baixando')
+                    # Não sobrescrever se já está em Processando/Finalizando
+                    if 'Processando' not in current_status and 'Finalizando' not in current_status and 'Concluído' not in current_status:
+                        download_status[url] = {
+                            'status': 'Baixando', 
+                            'progress': str(fake_p), 
+                            'speed': current.get('speed', ''), 
+                            'eta': ''
+                        }
+                else:
+                    # Reset flag para próxima iteração (o hook real pode parar de mandar)
+                    progress_data['real'] = False
+                progress_data['done'].wait(1.0)
+        
+        bg_thread = threading.Thread(target=synthetic_progress_thread, daemon=True)
+        bg_thread.start()
+
+        try:
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.extract_info(url, download=True)
+            except (yt_dlp.utils.DownloadError, Exception) as e:
+                err_msg = str(e).lower()
+                if ("partially downloaded" in err_msg or "cannot be partially" in err_msg) and clip:
+                    sys.stderr.write("DEBUG: Range download failed. Falling back to FFmpeg external downloader...\n")
+                    ydl_opts.pop('download_ranges', None)
+                    ydl_opts['external_downloader'] = 'ffmpeg'
+                    ydl_opts['external_downloader_args'] = {
+                        'ffmpeg': ['-ss', str(start_secs), '-to', str(end_secs) if end_secs else '999999']
+                    }
+                    download_status[url] = {'status': 'Baixando (FFmpeg)', 'progress': '10', 'speed': 'via FFmpeg', 'eta': ''}
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.extract_info(url, download=True)
+                else:
+                    raise e
+        finally:
+            progress_data['done'].set()
+            bg_thread.join(timeout=3)
+            
         if url in cancelled_urls:
-             download_status[url] = {'status': 'Cancelado', 'progress': '0'}
-             with queue_lock: cancelled_urls.discard(url)
+            download_status[url] = {'status': 'Cancelado', 'progress': '0'}
+            with queue_lock: cancelled_urls.discard(url)
         else:
-             download_status[url] = {'status': 'Concluído', 'progress': '100'}
-             send_notification("Tools63", f"Download Concluído: {os.path.basename(url)}")
+            download_status[url] = {'status': 'Concluído', 'progress': '100'}
+            
     except Exception as e:
-        if "CANCELLED" in str(e):
-             download_status[url] = {'status': 'Cancelado', 'progress': '0'}
-             with queue_lock: cancelled_urls.discard(url)
-        else:
-             download_status[url] = {'status': 'Erro', 'error': str(e)}
+        sys.stderr.write(f"DEBUG ERROR in execute_download: {traceback.format_exc()}\n")
+        download_status[url] = {'status': 'Erro', 'error': str(e)}
 
 # Routes
 @app.route('/info', methods=['POST'])
 def info():
-    url = request.json.get('url')
-    opts = {'quiet': True, 'noplaylist': True, 'nocheckcertificate': True}
-    if FFMPEG_PATH: opts['ffmpeg_location'] = FFMPEG_PATH
-    if NODE_PATH: opts['js_runtime'] = 'node'
+    sys.stderr.write("DEBUG: /info route called\n")
     try:
+        data = request.json
+        sys.stderr.write(f"DEBUG: /info request data: {data}\n")
+        url = data.get('url') if data else None
+        
+        if not url: 
+            sys.stderr.write("DEBUG ERROR: URL not provided\n")
+            return jsonify({'error': 'URL não fornecida'}), 400
+
+        opts = {
+            'quiet': True,
+            'noplaylist': True, 
+            'nocheckcertificate': True,
+            'allow_unplayable_formats': True,
+            'remote_components': ['ejs:github', 'ejs:npm'],
+            'extractor_args': {'youtube': {'player_client': ['web', 'ios', 'android']}},
+        }
+        if FFMPEG_PATH: opts['ffmpeg_location'] = FFMPEG_PATH
+        if NODE_PATH: 
+            opts['js_runtimes'] = {'node': {}}
+            
+        sys.stderr.write(f"DEBUG: Extracting info for {url} with opts={opts}\n")
+            
         with yt_dlp.YoutubeDL(opts) as ydl:
             i = ydl.extract_info(url, download=False)
             heights = sorted(set(f['height'] for f in i.get('formats',[]) if f.get('height') and f.get('vcodec')!='none'), reverse=True)
-            return jsonify({'title':i['title'],'thumbnail':i['thumbnail'],'duration':i['duration_string'],'uploader':i['uploader'],'platform':get_platform(url),'available_heights':heights[:8]})
-    except Exception as e: return jsonify({'error':str(e)}), 400
+            return jsonify({
+                'id': i.get('id'),
+                'title': i.get('title'),
+                'thumbnail': i.get('thumbnail') or f"https://i.ytimg.com/vi/{i.get('id')}/maxresdefault.jpg",
+                'duration': i.get('duration_string'),
+                'duration_sec': i.get('duration'),
+                'uploader': i.get('uploader'),
+                'platform': get_platform(url),
+                'available_heights': heights[:8]
+            })
+    except Exception as e: 
+        sys.stderr.write(f"DEBUG ERROR in /info: {str(e)}\n")
+        return jsonify({'error':str(e)}), 400
 
 @app.route('/download', methods=['POST'])
 def dl():
@@ -257,7 +459,7 @@ def dl():
     task = {'id':str(time.time()), 'url':url, 'format':b.get('format','mp4'), 'resolution':b.get('resolution','best'), 'clip':b.get('clip'), 'metadata':b.get('metadata'), 'cookies':b.get('cookies'), 'playlist':b.get('playlist')}
     with queue_lock: download_queue.append(task)
     with queue_lock: cancelled_urls.discard(url)
-    download_status[url] = {'status':'Na Fila','progress':'0'}
+    download_status[url] = {'status':'Iniciando...','progress':'0'}
     return jsonify({'ok':True})
 
 @app.route('/cancel', methods=['POST'])
@@ -301,17 +503,9 @@ def dlt():
     try: os.remove(os.path.join(DOWNLOAD_DIR, request.json['name'])); return jsonify({'ok':True})
     except: return jsonify({'ok':False}), 400
 
-@app.route('/open_file')
-def opn():
-    n = request.args.get('name', '')
-    p = os.path.join(DOWNLOAD_DIR, n) if n else DOWNLOAD_DIR
-    if platform.system() == 'Darwin':
-        cmd = ['open', '-R', p] if n and os.path.exists(p) else ['open', DOWNLOAD_DIR]
-        subprocess.Popen(cmd)
-    elif platform.system() == 'Windows':
-        if n: subprocess.Popen(f'explorer /select,"{os.path.abspath(p)}"', shell=True)
-        else: os.startfile(DOWNLOAD_DIR)
-    return jsonify({'ok':True})
+@app.route('/get_file/<path:filename>')
+def get_file(filename):
+    return send_from_directory(DOWNLOAD_DIR, filename)
 
 ANIME_API = "https://consumet-api-smoky.vercel.app"
 MANGADEX_API = "https://api.mangadex.org"
@@ -4397,6 +4591,233 @@ def api_books_trending():
     return jsonify({'results': res})
 
 
+
+
+def _resolve_type_param(default='movie'):
+    return request.args.get('type', default).lower()
+
+class LookMovieScraper:
+    BASE_URL = "https://ww1.lookmovie.pn"
+    SESSION = requests.Session()
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": BASE_URL + "/"
+    }
+
+    @classmethod
+    def search(cls, query, type_='movie'):
+        try:
+            url = f"{cls.BASE_URL}/{type_}s/search/?q={query}"
+            r = cls.SESSION.get(url, headers=cls.HEADERS, timeout=12)
+            soup = BeautifulSoup(r.text, 'html.parser')
+            nodes = soup.select('.movie-item-style-1')
+            results = []
+            for node in nodes:
+                try:
+                    title_a = node.select_one('h6 a')
+                    link_a = node.select_one('a')
+                    year_node = node.select_one('.year')
+                    img_node = node.select_one('img')
+                    slug = link_a['href'].split('/')[-1] if link_a else ''
+                    
+                    results.append({
+                        'title': title_a.text.strip() if title_a else 'N/A',
+                        'year': year_node.text.strip() if year_node else 'N/A',
+                        'slug': slug,
+                        'image': img_node['src'] if img_node and img_node.get('src') else '',
+                        'type': type_,
+                        'provider': 'lookmovie'
+                    })
+                except: continue
+            return results
+        except Exception as e:
+            print(f"Lookmovie Search Error: {e}")
+            return []
+
+    @classmethod
+    def get_info(cls, slug, type_='movie'):
+        try:
+            url = f"{cls.BASE_URL}/{type_}s/view/{slug}"
+            r = cls.SESSION.get(url, headers=cls.HEADERS, timeout=12)
+            
+            # Extract basic info
+            token_match = re.search(r'"token":"(.*?)"', r.text)
+            token = token_match.group(1) if token_match else ''
+            
+            # For debugging
+            print(f"DEBUG: url={url} text_len={len(r.text)} content_id_regex={rf'id_{type_}[\"\']?\s*:\s*(\d+)'}")
+            id_match = re.search(rf'id_{type_}["\']?\s*:\s*(\d+)', r.text)
+            content_id = id_match.group(1) if id_match else ''
+            print(f"DEBUG: content_id={content_id}")
+            
+            # Meta tags extraction
+            soup = BeautifulSoup(r.text, 'html.parser')
+            desc = soup.select_one('meta[name="description"]')
+            title = soup.select_one('title')
+            img = soup.select_one('.movie-details-img img')
+            poster = img['src'] if img else ''
+            
+            # Show specific: episodes list
+            episodes = []
+            if type_ == 'show':
+                # Parse JSON-like storage
+                storage_match = re.search(r"window\.show_storage\s*=\s*({.*?});", r.text, re.DOTALL)
+                if storage_match:
+                    # LookMovie show_storage has seasons -> episodes
+                    # We can use a simple regex to extract episode objects
+                    # Example: {"id_episode":111,"episode_number":1,"season_number":1}
+                    import json
+                    # Clean the JS object literal for simple json.loads if possible
+                    # Or just find all occurrences of episode patterns
+                    eps_data = re.findall(r'(\d+)\s*:\s*{\s*"id_episode"\s*:\s*(\d+),\s*"episode_number"\s*:\s*(\d+),\s*"season_number"\s*:\s*(\d+)', storage_match.group(1))
+
+                    for ep in eps_data:
+                        episodes.append({
+                            'id': ep[1],
+                            'episode': ep[2],
+                            'season': ep[3]
+                        })
+            
+            # Meta tags extraction
+            soup = BeautifulSoup(r.text, 'html.parser')
+            desc = soup.find('meta', {'name': 'description'})
+            title = soup.find('title')
+            poster_tag = soup.find('meta', {'property': 'og:image'})
+            poster = poster_tag['content'] if poster_tag else ''
+
+            # Find Play URL
+            play_match = re.search(rf'/{type_}s/play/([^"]+)', r.text)
+            play_slug = play_match.group(1) if play_match else slug
+            
+            # Fetch Play page to get hash/expires
+            play_url = f"{cls.BASE_URL}/{type_}s/play/{play_slug}"
+            r_play = cls.SESSION.get(play_url, headers=cls.HEADERS, timeout=12)
+            # print(f"DEBUG: play_url={play_url} text_len={len(r_play.text)} text_sample={r_play.text[:500]}")
+            
+            # Extract hash and expires from movie_storage or script
+            hash_match = re.search(r'"hash":"(.*?)"', r_play.text)
+            expires_match = re.search(r'"expires":(\d+)', r_play.text)
+            
+            # Fallback to token if hash not found (though hash is the new way)
+            token_match = re.search(r'"token":"(.*?)"', r_play.text)
+            
+            h = hash_match.group(1) if hash_match else ''
+            e = expires_match.group(1) if expires_match else ''
+            t = token_match.group(1) if token_match else ''
+            
+            # Combine into a single token string for the frontend (hash:expires or token)
+            combined_token = f"{h}:{e}" if h else t
+            
+            return {
+                'id': content_id,
+                'token': combined_token,
+                'type': type_,
+                'slug': play_slug,
+                'description': desc['content'] if desc else '',
+                'title': title.text.replace(' - Free Movies', '') if title else slug,
+                'poster': poster,
+                'episodes': episodes
+            }
+        except: return None
+
+
+    @classmethod
+    def get_stream(cls, content_id, slug, type_, token):
+        try:
+            now = int(time.time())
+            if type_ == 'movie':
+                h, e = (token.split(':') + ['', ''])[:2]
+                if h and e:
+                    api_url = f"{cls.BASE_URL}/api/v1/security/movie-access?id_movie={content_id}&hash={h}&expires={e}"
+                else:
+                    api_url = f"{cls.BASE_URL}/api/v1/security/movie-access?id_movie={content_id}&token={token or 1}&sk=&step=1"
+                
+                headers = cls.HEADERS.copy()
+                headers['Referer'] = f"{cls.BASE_URL}/{type_}s/play/{slug}"
+                headers['X-Requested-With'] = 'XMLHttpRequest'
+                
+                r = cls.SESSION.get(api_url, headers=headers)
+                res = r.json()
+                access_token = res.get('accessToken', '')
+                if not access_token: return None
+                return {
+                    'url': f"{cls.BASE_URL}/manifests/movies/json/{content_id}/{now}/{access_token}/master.m3u8"
+                }
+            elif type_ == 'show':
+                # Similar logic for shows if they use hash/expires
+                h, e = (token.split(':') + ['', ''])[:2]
+                if h and e:
+                    api_url = f"{cls.BASE_URL}/api/v1/security/show-access?slug={slug}&hash={h}&expires={e}"
+                else:
+                    api_url = f"{cls.BASE_URL}/api/v1/security/show-access?slug={slug}&token={token or ''}&step=2"
+                
+                headers = cls.HEADERS.copy()
+                headers['Referer'] = f"{cls.BASE_URL}/{type_}s/play/{slug}"
+                headers['X-Requested-With'] = 'XMLHttpRequest'
+                
+                r = cls.SESSION.get(api_url, headers=headers)
+                res = r.json()
+                access_token = res.get('accessToken', '')
+                if not access_token: return None
+                return {
+                    'url': f"{cls.BASE_URL}/manifests/shows/json/{access_token}/{now}/{content_id}/master.m3u8"
+                }
+        except Exception as e:
+            print(f"LookMovie error: {e}")
+            return None
+            print(f"Lookmovie Stream Error: {e}")
+        return None
+
+@app.route('/movie/search')
+def movie_search():
+    query = request.args.get('q', '')
+    type_ = _resolve_type_param()
+    results = LookMovieScraper.search(query, type_=type_)
+    return jsonify({'results': results})
+
+@app.route('/movie/info/<slug>')
+def movie_info(slug):
+    type_ = _resolve_type_param()
+    data = LookMovieScraper.get_info(slug, type_=type_)
+    if not data: return jsonify({'error': 'Not found'}), 404
+    return jsonify(data)
+
+@app.route('/movie/stream')
+def movie_stream():
+    slug = request.args.get('slug', '')
+    content_id = request.args.get('id', '')
+    token = request.args.get('token', '')
+    type_ = _resolve_type_param()
+    data = LookMovieScraper.get_stream(content_id, slug, type_, token)
+    if not data: return jsonify({'error': 'Could not get stream'}), 400
+    return jsonify(data)
+
+
+proxy_session = requests.Session()
+
+@app.route('/proxy')
+def proxy():
+    url = request.args.get('url')
+    if not url: return "No URL provided", 400
+    try:
+        # User-Agent consistency is key
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://ww1.lookmovie.pn/"
+        }
+        r = proxy_session.get(url, timeout=12, headers=headers)
+        
+        # We only proxy text/m3u8/json usually
+        resp = Response(r.content, status=r.status_code)
+        resp.headers['Content-Type'] = r.headers.get('Content-Type', 'text/plain')
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp
+    except Exception as e:
+        return str(e), 500
+
+
+
 if __name__ == '__main__':
+
     threading.Thread(target=process_queue, daemon=True).start()
     app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
